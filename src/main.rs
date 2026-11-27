@@ -263,16 +263,17 @@ fn main() {
     store::set_ubiquity_probe(onboarding::ubiquitous);
     let root = store::Store::legacy_dir();
     let fixed = std::env::var_os("QUIET_MD_HOME").is_some();
+    let folders = std::env::var_os("QUIET_MD_FOLDERS").is_some();
     logging::write(&format!("library {}", root.display()));
     // The top-level folders: a folders.json (even an empty one: every folder removed) or the
     // library builds before it used means this computer has been here
     // before, and can show 更新日志.
-    let existed = (!fixed && fdl_core::vfs::PathExt::fs_exists(fdl_core::home::Home::list_file().as_path())) || guides::seeded(&root).unwrap_or(false);
+    let existed = ((!fixed || folders) && fdl_core::vfs::PathExt::fs_exists(fdl_core::home::Home::list_file().as_path())) || guides::seeded(&root).unwrap_or(false);
     // A first launch picks its folders on the first launch's pages.
     let onboard = onboarding::wanted(existed, scripted);
     // A test run's folder (`QUIET_MD_HOME`) is set up as before; the
     // self-test checks first launch's seeding, without its pages.
-    if fixed && (!scripted || selftest::active()) && !onboard && let Err(err) = guides::initialize(&root) {
+    if fixed && !folders && (!scripted || selftest::active()) && !onboard && let Err(err) = guides::initialize(&root) {
         logging::fatal(&format!("无法初始化文档库 / Could not set up the library at {}", root.display()), &err);
     }
     let app = gpui_platform::application().with_assets(assets::Assets);

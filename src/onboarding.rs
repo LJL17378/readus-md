@@ -345,7 +345,7 @@ impl Onboarding {
             return cx.emit(Done);
         }
         // The folders picked open where they are, else a new one (W12).
-        let fixed = std::env::var_os("QUIET_MD_HOME").is_some();
+        let fixed = std::env::var_os("QUIET_MD_HOME").is_some() && std::env::var_os("QUIET_MD_FOLDERS").is_none();
         // A test run's one folder (`QUIET_MD_HOME`) is the top-level folder; it gets the guides as a new folder would.
         let home = crate::store::Store::legacy_dir();
         let new_top = (self.open.is_empty() && !fixed).then(|| self.root.clone());
