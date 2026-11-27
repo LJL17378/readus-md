@@ -165,3 +165,7 @@ shadcn 没有 Toolbar，这里按它已有的零件拼（2026-11-23，维护者�
 - **没有对应组件、各只有一两处的**：提醒和倒计时的小日历、表情格子、封面面板和查找框顶部带下划线的页签、引用列表的页签、颜色色块、尺寸选择器格子、倒计时的两张选项卡片。
 - **列表行**（侧栏树、主页列表、回收站、搜索结果、设置导航、版本历史行）：按约定保持列表行的样子，只把颜色换成 token。
 - **对话框的键盘**：导出 Markdown、文档信息已用 `DialogFocus`（Esc、↩ 不再落到编辑器上）；确认框用它自己的 `confirm_focus`（key context `Confirm`，`ConfirmOk` / `ConfirmCancel` 动作）。没套的：移动到（打开时焦点就在它的搜索框里，Esc 由搜索框收）、搜索（同样有自己的输入框）、强制更新（窗口在 capture 阶段吞掉所有按键）、倒计时（编辑器里，已有自己的 `CountdownDialog` 焦点）、数据表记录详情（有自己的头部和关闭逻辑，没动）。
+
+### Readus.md Progress
+
+`design::Progress::new(0.0..=1.0)` implements the shadcn Progress track and indicator using semantic primary colours (8pt track, rounded ends). Reading surfaces use a 3pt height. A live +25% example is on the 组件库 card page; light and dark use the same semantic tokens.

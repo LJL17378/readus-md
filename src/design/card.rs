@@ -10,6 +10,24 @@ use super::{color, geo, shadow};
 use gpui::prelude::FluentBuilder;
 use gpui::*;
 
+/// shadcn Progress: h-2, rounded-full, primary/20 track and primary indicator.
+#[derive(IntoElement)]
+pub struct Progress { base: Div, value: f32 }
+impl Styled for Progress { fn style(&mut self) -> &mut StyleRefinement { self.base.style() } }
+impl Progress {
+    pub fn new(value: f32) -> Self { Self { base: div(), value: if value.is_finite() { value.clamp(0., 1.) } else { 0. } } }
+}
+impl RenderOnce for Progress {
+    fn render(self, _: &mut Window, _: &mut App) -> impl IntoElement {
+        let mut d = self.base;
+        let caller = std::mem::take(d.style());
+        let mut d = d.h(px(8.)).w_full().rounded_full().overflow_hidden().bg(super::alpha(color::primary(), 0.2))
+            .child(div().h_full().w(relative(self.value)).rounded_full().bg(color::primary()));
+        d.style().refine(&caller);
+        d
+    }
+}
+
 /// A card in a page (`Card`: `card`, `rounded-xl`) on affectUI's frame edge (`shadow::frame`): a
 /// group of settings, a tile. It doesn't float, so no drop beyond 1–2pt. Children lay out as the
 /// caller says (a column by default).

@@ -19,6 +19,7 @@ pub mod palette;
 pub mod paths;
 pub mod paste;
 pub mod remote;
+pub mod reading;
 pub mod shown;
 pub mod siyuan;
 pub mod spacing;

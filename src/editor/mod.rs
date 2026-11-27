@@ -25,6 +25,7 @@ pub mod menus;
 pub(crate) mod overlays;
 mod numbering;
 mod reading;
+mod reader;
 mod scrollbar;
 pub mod reminder;
 mod render;

@@ -81,6 +81,7 @@ fn set(state: State, cx: &mut App) {
 /// Starts the periodic check.
 pub fn init(cx: &mut App) {
     cx.set_global(Updater { state: State::Idle, told: None, last: None, forced: None, policy_last: None, policy_busy: false });
+    if option_env!("READUS_DEV_BUILD").is_some() { return }
     cx.spawn(async |cx| {
         cx.background_executor().timer(Duration::from_secs(10)).await;
         loop {
@@ -111,6 +112,7 @@ pub fn check_if_stale(cx: &mut App) {
 /// failures and an up-to-date copy; the automatic check stays silent except
 /// for a toast, once per version, when there is something new.
 pub fn check(manual: bool, cx: &mut App) {
+    if option_env!("READUS_DEV_BUILD").is_some() && override_url().is_none() { return }
     match state(cx) {
         // A finished download waits for 重启以更新.
         State::Checking | State::Downloading(_) | State::Ready(..) | State::Installing(_) => return,

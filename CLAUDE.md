@@ -62,3 +62,10 @@ See tools/harness/README.md for the full rules.
 - `grep` resolves to ugrep.
 - On macOS, use `sed -i ''` for in-place editing.
 - The `timeout` command is unavailable.
+
+## Readus.md fork: cloud development
+
+- Reading, paragraph bookmarks and the bookshelf extend the existing GPUI editor and real working folders; reader metadata never changes the document body. Keep the core independent of GPUI.
+- This Mac is for source editing and runtime testing. Use the `Readus development` GitHub Actions workflow for compilation, tests and clippy; do not install or generate local Rust/Xcode build dependencies.
+- The user may authorize commits/pushes on a `codex/` branch for cloud validation. With that authorization, push the candidate to run `scripts/check.sh` in CI; require its success before merging or calling the work verified. Never infer permission to merge or publish.
+- Download only a successful run whose commit, repository, architecture and checksum match its metadata. Use an isolated `QUIET_MD_HOME`, retain current/previous apps, and leave no test processes running.

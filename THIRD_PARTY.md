@@ -883,3 +883,5 @@ The design system in `src/design/` takes its colour, radius and spacing values f
 ## Bundled documents
 
 The project wrote the Getting Started sample documents in `shared-mock/library/` and distributes them under MIT.
+
+| Readus.md reader icons | `assets/icons/reader-book.svg` and `assets/icons/reader-bookmark.svg` are original project artwork (MIT), drawn on the existing 18px outline grid. With these two additions there are 21 project-drawn interface icons; the 82 Nucleo files and 87 distinct licensed Nucleo icons are unchanged. |

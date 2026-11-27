@@ -142,7 +142,15 @@ impl Workspace {
         let header = self.sidebar_header(crate::ui::header_icon("section-add", "folder-plus").tip(crate::settings::tr("添加文件夹", "Add Folder"), Some(crate::shortcuts::hint("workspace::OpenFolder", "⌘ + ⇧ + O")))
             .on_click(cx.listener(|w, _: &ClickEvent, window, cx| w.open_folder_dialog(window, cx))), cx);
 
-        let nav = div().flex_none();
+        let mut nav = div().flex_none().px(px(SB_X)).pb(px(12.));
+        for (id, glyph, label, page) in [
+            ("nav-shelf", "reader-book", crate::settings::tr("书架", "Bookshelf"), crate::reader::Page::Shelf),
+            ("nav-bookmarks", "reader-bookmark", crate::settings::tr("书签", "Bookmarks"), crate::reader::Page::Bookmarks),
+            ("nav-knowledge", "folder", crate::settings::tr("知识库", "Knowledge library"), crate::reader::Page::Knowledge),
+        ] {
+            nav = nav.child(footer_row(id, glyph, label).when(self.view == View::Library && self.reader.page == page, |d| d.bg(Theme::sidebar_selected()))
+                .on_click(cx.listener(move |w, _, _, cx| w.show_library(page, cx))));
+        }
 
         // 置顶 and 我的文档's heading stand still above the list, as 我的文档's own header (the
         // maintainer, 2026-11-25): the rows scroll under it, and so does the scrollbar's track.

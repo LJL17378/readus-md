@@ -1,0 +1,55 @@
+name: Readus development
+
+on:
+  push:
+    branches: ['codex/**']
+  workflow_dispatch:
+    inputs:
+      check_only:
+        description: 'Check without packaging a development app'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: readus-dev-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  macos:
+    runs-on: macos-15
+    timeout-minutes: 90
+    env:
+      MACOSX_DEPLOYMENT_TARGET: '13.0'
+      CARGO_PROFILE_RELEASE_DEBUG: line-tables-only
+      READUS_DEV_BUILD: '1'
+      DO_NOT_TRACK: '1'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
+        with:
+          key: readus-macos-dev
+          cache-on-failure: true
+      - name: Toolchain and isolated test library
+        run: |
+          rustup component add clippy
+          echo "QUIET_MD_HOME=$(mktemp -d)" >> "$GITHUB_ENV"
+      - name: Core regressions
+        run: cargo test --release --locked -p fdl_core
+      - name: Development app
+        run: cargo build --release --locked --features devtools
+      - name: Package development app
+        if: inputs.check_only != true
+        run: python3 tools/dev/package.py
+      - name: Upload development app
+        if: inputs.check_only != true
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: readus-dev
+          path: dist-dev/*
+          retention-days: 7
+          if-no-files-found: error
+      - name: Full release tests and clippy
+        run: scripts/check.sh

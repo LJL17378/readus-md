@@ -20,6 +20,7 @@ use std::time::Duration;
 
 pub enum EditorEvent {
     Changed,
+    Reading(fdl_core::reading::Anchor, f32),
     /// ⌘S: write to disk now instead of waiting for the autosave debounce.
     Save,
     /// Toolbar 更多 → 文档库内搜索: the search dialog with this query.
@@ -318,6 +319,7 @@ pub struct Editor {
     pub created: u64,
     /// 阅读模式 (`reading.rs`), and the document as it was when it began.
     pub read_only: bool,
+    pub reader: super::reader::Reader,
     /// A Markdown file: only what Markdown can hold is offered (no colors,
     /// alignment, callouts, columns, add-on blocks, icon or cover).
     pub markdown: bool,
@@ -556,6 +558,7 @@ impl Editor {
             modified,
             created: modified,
             read_only: false,
+            reader: Default::default(),
             markdown: false,
             board_file: false,
             ro_doc: None,

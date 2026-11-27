@@ -396,7 +396,10 @@ pub fn cards(g: &mut Gallery, _w: &mut Window, cx: &mut Cx) -> Div {
     let boxed = { thread_local! { static H: ScrollHandle = ScrollHandle::new(); } let h = H.with(|h| h.clone());
         div().id("sa-box").w(px(220.)).h(px(160.)).border_1().border_color(color::border()).overflow_y_scroll().track_scroll(&h).p(px(12.)).flex().flex_col().gap(px(8.))
             .children((0..16usize).map(|i| t(&format!("第 {} 行正文", i + 1)))).child(crate::design::scroll::bar("gallery-sa-box", &h, 0.)) };
-    let live = row().child(item("Card + Item（设置分组，开关能点）", card)).child(item("Toast（在面板底部提示）", toasts))
+    let progress = div().w(px(240.)).flex().flex_col().gap(px(16.))
+        .child(crate::design::Progress::new(g.at(("reading-progress", 0)) as f32 / 4.))
+        .child(Button::outline("progress-advance").label("阅读进度 +25% ").on_click(tap(cx, |g, _, _| { let n = g.at(("reading-progress", 0)); g.pick.insert(("reading-progress", 0), (n + 1) % 5); })));
+    let live = row().child(item("Progress · 阅读进度（可点）", progress)).child(item("Card + Item（设置分组，开关能点）", card)).child(item("Toast（在面板底部提示）", toasts))
         .child(item("ScrollArea · 菜单限高（悬停、滚动显示，可拖）", long)).child(item("ScrollArea · 方框", boxed));
     let still = row()
         .child(item("Separator · 横 / 竖", div().w(px(200.)).flex().flex_col().gap(px(12.)).child(t("上")).child(Separator::new()).child(div().h(px(20.)).flex().gap(px(12.)).child(t("左")).child(Separator::new().vertical()).child(t("右")))))

@@ -32,7 +32,7 @@ pub use badge::{Badge, Kbd, KbdGroup};
 #[allow(unused_imports)]
 pub use button::{Button, ButtonSize, ButtonVariant};
 #[allow(unused_imports)]
-pub use card::{Card, Item, Separator, Toast, ToastTone};
+pub use card::{Card, Item, Progress, Separator, Toast, ToastTone};
 #[allow(unused_imports)]
 pub use control::{Checkbox, Radio, Segment, Segmented, Slider, Swatch, Switch};
 #[allow(unused_imports)]

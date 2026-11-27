@@ -304,6 +304,7 @@ pub struct RowMenu {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum View {
     Doc,
+    Library,
     /// No page picked (a start, what was open went away): the default folder's page
     /// (`Workspace::default_folder`), or the empty state when no folder is open.
     Default,
@@ -392,6 +393,7 @@ pub struct Workspace {
     pub store: SharedStore,
     /// Changed only through `set` / `edit` / `take`, which move its `generation` (entries.rs).
     pub entries: crate::entries::Entries,
+    pub reader: crate::reader::Reader,
     pub current: Option<String>,
     pub editor: Option<Entity<Editor>>,
     pub search: Entity<TextField>,
@@ -727,6 +729,7 @@ impl Workspace {
             keyboard_inset: 0.,
             sidebar_auto_hidden: false,
             sidebar_drag: false,
+            reader: crate::reader::Reader::new(cx),
             folder_current: None,
             create_menu: None,
             crumb_menu: None,
@@ -1008,6 +1011,8 @@ impl Workspace {
             if let Some(m) = &meta {
                 e.created = m.created;
                 e.info = m.info;
+                e.reader.track = m.reader.shelved;
+                e.reader.restore = m.reader.position.clone();
                 if !e.board_file && !e.table_file { e.set_read_only(m.reading, cx); }
                 // a build without 数据表 shows a table file's page as a placeholder, not to be edited
             }
@@ -1022,6 +1027,7 @@ impl Workspace {
         let top = self.store.scroll_top(id);
         editor.update(cx, |e, _| e.restore_top = top);
         self.editor_sub = Some(cx.subscribe_in(&editor, window, |this, _, ev: &EditorEvent, window, cx| match ev {
+            EditorEvent::Reading(anchor, progress) => this.reading_progress(anchor.clone(), *progress, cx),
             EditorEvent::Changed => {
                 this.file_history.prefer_files = false;
                 // 阅读模式 put the document back: nothing to save.
@@ -1422,6 +1428,7 @@ impl Workspace {
     }
 
     pub(crate) fn flush_view_state(&mut self) {
+        self.flush_reading();
         self.view_state_task = None;
         if let Err(e) = self.store.flush_view_state() { crate::logging::write(&format!("Could not save the reading position: {e:#}")); }
     }
@@ -1669,6 +1676,7 @@ impl Workspace {
 
     pub fn save_before(&mut self, cx: &mut Context<Self>, then: impl FnOnce(&mut Self, &mut Window, &mut Context<Self>) + 'static) -> bool {
         if self.store.file_task_busy() { return false; }
+        self.flush_view_state();
         if self.flush(cx) {
             return true;
         }
@@ -2140,9 +2148,12 @@ impl Render for Workspace {
                                 .h_full()
                                 .children(self.editor.clone()),
                         )
-                        .children(self.render_shortcuts(cx)),
+                        .children(self.render_shortcuts(cx))
+                        .children(self.render_bookmark_drawer(cx)),
                 )
+                .children(self.render_reading_bar(cx))
                 .into_any_element(),
+            View::Library => self.render_library(window, cx),
             View::Default => self.render_empty(cx),
             View::Folder => self.render_folder(window, cx),
             View::Trash => self.render_trash(cx),

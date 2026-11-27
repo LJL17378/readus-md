@@ -61,6 +61,9 @@ pub struct Meta {
     /// 阅读模式, remembered per document like the page width.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub reading: bool,
+    /// Reading state and paragraph bookmarks; kept out of the document body.
+    #[serde(default, skip_serializing_if = "crate::reading::Reading::is_default")]
+    pub reader: crate::reading::Reading,
     /// The 文档信息 row under the title.
     #[serde(default, skip_serializing_if = "InfoRow::is_default")]
     pub info: InfoRow,
@@ -144,7 +147,7 @@ impl Default for Meta {
         Self {
             folder: None, top_order: None, created: 0, modified: 0, pinned: false, opened: 0,
             width: PageWidth::default(), catalogue_closed: true,
-            parent: None, order: 0, starred: 0, reading: false,
+            parent: None, order: 0, starred: 0, reading: false, reader: Default::default(),
             info: InfoRow::default(), refs_hidden: false,
             markdown: false, path: None, name: None, rel: String::new(), kind: DocKind::Doc,
         }
@@ -590,6 +593,8 @@ struct Attached {
     catalogue_closed: bool,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     reading: bool,
+    #[serde(default, skip_serializing_if = "crate::reading::Reading::is_default")]
+    reader: crate::reading::Reading,
     #[serde(default, skip_serializing_if = "InfoRow::is_default")]
     info: InfoRow,
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
@@ -601,12 +606,12 @@ type DiskIndex = BTreeMap<String, Attached>;
 impl Attached {
     fn of(id: &str, m: &Meta) -> Self {
         Attached { id: id.to_string(), created: m.created, modified: m.modified, pinned: m.pinned, starred: 0, order: m.order, top_order: m.top_order,
-            width: m.width, catalogue_closed: m.catalogue_closed, reading: m.reading, info: m.info, refs_hidden: m.refs_hidden }
+            width: m.width, catalogue_closed: m.catalogue_closed, reading: m.reading, reader: m.reader.clone(), info: m.info, refs_hidden: m.refs_hidden }
     }
     /// `starred` is read (`take_star`), and `of` writes it no more: saving drops it from the disk.
     fn meta(&self) -> Meta {
         Meta { created: self.created, modified: self.modified, pinned: self.pinned || self.starred > 0, order: self.order, top_order: self.top_order,
-            width: self.width, catalogue_closed: self.catalogue_closed, reading: self.reading, info: self.info, refs_hidden: self.refs_hidden, ..Default::default() }
+            width: self.width, catalogue_closed: self.catalogue_closed, reading: self.reading, reader: self.reader.clone(), info: self.info, refs_hidden: self.refs_hidden, ..Default::default() }
     }
 }
 
@@ -3959,6 +3964,33 @@ mod tests {
         let untouched = after.iter().filter(|(id, _)| *id != new).cloned().collect::<Vec<_>>();
         assert_eq!(untouched, before);
         assert_eq!(after.iter().find(|(id, _)| *id == new).unwrap().1, 0);
+    }
+
+    #[test]
+    fn reader_metadata_survives_reopen_rename_move_and_does_not_rewrite_body() {
+        let lib = Lib::new("reader-metadata");
+        let mut s = lib.open();
+        let d = doc_with("reading", "Keep this paragraph intact.");
+        let id = s.create_from(&d).unwrap();
+        let before = crate::vfs::read(s.path(&id)).unwrap();
+        let anchor = crate::reading::Index::new(&s.load(&id).unwrap()).first().unwrap();
+        s.update_meta(&id, |m| {
+            m.reader.shelved = true;
+            m.reader.visit(anchor.clone(), 0.65, 42);
+            m.reader.add_bookmark(anchor.clone(), 42);
+        }).unwrap();
+        assert_eq!(crate::vfs::read(s.path(&id)).unwrap(), before);
+        let expected = s.list().into_iter().find(|e| e.id == id).unwrap().meta.reader;
+        drop(s);
+        let mut s = lib.open();
+        assert_eq!(s.list().into_iter().find(|e| e.id == id).unwrap().meta.reader, expected);
+        let folder = s.create_folder("Books", None).unwrap();
+        s.set_parent(&id, Some(&folder)).unwrap();
+        s.rename(&id, "renamed").unwrap();
+        drop(s);
+        let mut s = lib.open();
+        assert_eq!(s.list().into_iter().find(|e| e.id == id).unwrap().meta.reader, expected);
+        assert_eq!(s.load(&id).unwrap().blocks, d.blocks);
     }
 
     #[test]

@@ -14,3 +14,7 @@
 
 # The web demo (web/build.sh, web/bundle.py): build output, deployed with the site.
 /site/public/demo/
+
+# Cloud-built development apps and isolated runtime data.
+/.dev/
+/dist-dev/

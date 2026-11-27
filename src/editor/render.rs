@@ -1274,6 +1274,7 @@ impl Editor {
         }
         self.items = items;
         self.item_keys = keys;
+        self.restore_reading();
     }
 
     /// The list item showing `id` (the deepest row on its path).
@@ -1884,6 +1885,7 @@ impl Editor {
                         cx.spawn(async |this, cx| this.update(cx, |_, cx| cx.notify())).detach();
                     }
                     ed.apply_reveal(window);
+                    ed.observe_reading(cx);
                 });
             },
         )

@@ -1,7 +1,7 @@
 #![recursion_limit = "512"]
 #![cfg_attr(target_os = "windows", windows_subsystem = "windows")]
 
-pub(crate) const APP_ID: &str = "com.s1dashu.quietmd";
+pub(crate) const APP_ID: &str = if option_env!("READUS_DEV_BUILD").is_some() { "local.readusmd.dev" } else { "com.s1dashu.quietmd" };
 
 mod app;
 mod agent_connect;
@@ -44,6 +44,7 @@ mod html;
 mod input;
 mod logging;
 mod modes;
+mod reader;
 mod typewriter;
 mod zoom;
 mod import_sources;
