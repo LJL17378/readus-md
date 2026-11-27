@@ -1,14 +1,14 @@
 //! Français. Keys are the Chinese strings in the source (see `l10n`).
 //! `python3 tools/l10n/keys.py --missing fr` lists what is left to translate.
 pub(super) const STRINGS: &[(&str, &str)] = &[
-    ("关于 Quiet.md", "À propos de Quiet.md"),
+    ("关于 Readus.md", "À propos de Readus.md"),
     ("检查更新…", "Rechercher des mises à jour…"),
     ("设置…", "Réglages…"),
     ("服务", "Services"),
-    ("隐藏 Quiet.md", "Masquer Quiet.md"),
+    ("隐藏 Readus.md", "Masquer Readus.md"),
     ("隐藏其他", "Masquer les autres"),
     ("全部显示", "Tout afficher"),
-    ("退出 Quiet.md", "Quitter Quiet.md"),
+    ("退出 Readus.md", "Quitter Readus.md"),
     ("文件", "Fichier"),
     ("新建文档", "Nouveau document"),
     ("新建子文档", "Nouvelle sous-page"),

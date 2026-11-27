@@ -1808,7 +1808,7 @@ impl Workspace {
     fn about_page(&self, cx: &mut Context<Self>) -> AnyElement {
         div().w_full().flex().flex_col().gap(px(crate::design::geo().section_gap)).child(div().w_full().pt(px(24.)).flex().flex_col().items_center().gap(px(10.))
             .child(img(about_icon()).size(px(88.)))
-            .child(div().text_size(px(20.)).line_height(px(26.)).font_weight(FontWeight::SEMIBOLD).child("Quiet.md"))
+            .child(div().text_size(px(20.)).line_height(px(26.)).font_weight(FontWeight::SEMIBOLD).child("Readus.md"))
             .child(div().text_size(px(theme::ui_font())).line_height(px(theme::ui_font() + 5.)).text_color(Theme::text_caption()).child(format!("{} {}", tr("版本", "Version"), env!("CARGO_PKG_VERSION"))))
             .child(div().text_size(px(theme::ui_font())).line_height(px(theme::ui_font() + 7.)).text_color(Theme::text_caption()).child(if cfg!(target_os = "macos") { tr("本地优先的笔记应用：无需账号，文档就是你电脑上的文件。", "Local-first notes: no account, your documents are files on your Mac.") }
                 else { tr("本地优先的笔记应用：无需账号，文档就是你电脑上的文件。", "Local-first notes: no account, your documents are files on your computer.") })))
@@ -1913,6 +1913,7 @@ pub(crate) fn localize(text: &str, english: bool) -> &str {
         "新建" => "New",
         "新建文档" => "New document",
         "搜索" => "Search",
+        "搜索标题、正文或书签" => "Search titles, text or bookmarks",
         "搜索文档…" => "Search documents…",
         "搜索文档..." => "Search documents...",
         "最近访问" => "Recently visited",

@@ -1,0 +1,42 @@
+# Generated fixture: scripts/dev.sh test. No real documents, clipboard or focus.
+resize 1280 860
+wait 1200
+row Reading journey
+wait 400
+anchor reader-mode
+wait 300
+reader-expect /read_only true
+anchor reader-shelf
+reader-expect /shelved true
+wheel 720 420 900
+wait 900
+anchor reader-bookmark-add
+wait 300
+reader-expect /bookmarks 1
+shot reader-with-bookmark
+reader-state reader-state.json
+anchor reader-drawer-close
+anchor nav-shelf
+wait 400
+reader-expect /shelf_count 1
+shot bookshelf
+key ctrl-cmd-d
+wait 300
+shot bookshelf-dark
+key ctrl-cmd-d
+wait 300
+anchor shelf:Reading journey
+wait 400
+reader-expect /read_only true
+reader-expect /bookmarks 1
+anchor nav-knowledge
+wait 300
+shot knowledge-library
+anchor nav-bookmarks
+wait 300
+shot all-bookmarks
+anchor bookmark:Reading journey
+wait 400
+reader-expect /bookmarks 1
+reader-state reader-state.json
+quit

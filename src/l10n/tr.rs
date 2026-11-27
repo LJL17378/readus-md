@@ -1,14 +1,14 @@
 //! Türkçe. Keys are the Chinese strings in the source (see `l10n`).
 //! `python3 tools/l10n/keys.py --missing tr` lists what is left to translate.
 pub(super) const STRINGS: &[(&str, &str)] = &[
-    ("关于 Quiet.md", "Quiet.md Hakkında"),
+    ("关于 Readus.md", "Readus.md Hakkında"),
     ("检查更新…", "Güncellemeleri Denetle…"),
     ("设置…", "Ayarlar…"),
     ("服务", "Servisler"),
-    ("隐藏 Quiet.md", "Quiet.md'yi Gizle"),
+    ("隐藏 Readus.md", "Readus.md'yi Gizle"),
     ("隐藏其他", "Diğerlerini Gizle"),
     ("全部显示", "Tümünü Göster"),
-    ("退出 Quiet.md", "Quiet.md'den Çık"),
+    ("退出 Readus.md", "Readus.md'den Çık"),
     ("文件", "Dosya"),
     ("新建文档", "Yeni Belge"),
     ("新建子文档", "Yeni Alt Sayfa"),

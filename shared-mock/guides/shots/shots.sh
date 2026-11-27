@@ -11,7 +11,7 @@ set -e
 cd "$(dirname "$0")/../../.."
 here=shared-mock/guides/shots
 work=$(mktemp -d /tmp/quiet-shots.XXXXXX)
-compose() { /usr/bin/python3 $here/compose.py "$@"; }
+compose() { "${PYTHON:-python3}" $here/compose.py "$@"; }
 ver=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)
 # Under QUIET_MD_HOME the settings live in the library's .quiet (Store::settings_dir);
 # seen_version: no 已更新到 card over the sidebar.

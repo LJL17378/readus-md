@@ -25,6 +25,10 @@ env = {'HOME': os.path.expanduser('~'), 'QUIET_MD_HOME': lib, 'FDL_SCRIPT': scri
        'FDL_SHOTS': work, 'PATH': '/opt/homebrew/bin:/usr/bin:/bin'}
 for k in ('FDL_BOARD_PROF', 'FDL_BOARD_RENDER', 'FDL_TRACE', 'FDL_NOPARK', 'FDL_WINDOW_CAPTURE', 'FDL_NOBLINK', 'FDL_ANIMATE', 'FDL_RECORD_FPS', 'FDL_RECORD_START', 'TMPDIR', 'QUIET_MD_ONBOARDING', 'QUIET_MD_UPDATE_URL', 'QUIET_MD_FONT_URL', 'QUIET_MD_FONT_DIR', 'QUIET_MD_TRIAL_FONTS', 'QUIET_MD_FOLDERS', 'QUIET_MD_COMPONENTS', 'FDL_TREE_WRITE_DELAY'):
     if k in os.environ: env[k] = os.environ[k]
-code = subprocess.run(binary, env=env, cwd=work, stdout=open(os.path.join(work, 'log'), 'w'), stderr=subprocess.STDOUT).returncode
+try:
+    limit = float(os.environ['FDL_RUN_TIMEOUT']) if os.environ.get('FDL_RUN_TIMEOUT') else None
+    code = subprocess.run(binary, env=env, cwd=work, stdout=open(os.path.join(work, 'log'), 'w'), stderr=subprocess.STDOUT, timeout=limit).returncode
+except subprocess.TimeoutExpired:
+    sys.exit(f'quiet_md timed out and was stopped; see {os.path.join(work, "log")}')
 # 3: a `row` / `anchor` step found nothing to click (the reason is in the log).
 if code: sys.exit(f'quiet_md exited with {code}; see {os.path.join(work, "log")}')

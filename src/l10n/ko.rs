@@ -1,14 +1,14 @@
 //! 한국어. Keys are the Chinese strings in the source (see `l10n`).
 //! `python3 tools/l10n/keys.py --missing ko` lists what is left to translate.
 pub(super) const STRINGS: &[(&str, &str)] = &[
-    ("关于 Quiet.md", "Quiet.md에 관하여"),
+    ("关于 Readus.md", "Readus.md에 관하여"),
     ("检查更新…", "업데이트 확인…"),
     ("设置…", "설정…"),
     ("服务", "서비스"),
-    ("隐藏 Quiet.md", "Quiet.md 가리기"),
+    ("隐藏 Readus.md", "Readus.md 가리기"),
     ("隐藏其他", "기타 가리기"),
     ("全部显示", "모두 보기"),
-    ("退出 Quiet.md", "Quiet.md 종료"),
+    ("退出 Readus.md", "Readus.md 종료"),
     ("文件", "파일"),
     ("新建文档", "새 문서"),
     ("新建子文档", "새 하위 페이지"),

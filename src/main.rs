@@ -153,7 +153,7 @@ pub(crate) fn main_window_options(scripted: bool, at: Option<Bounds<Pixels>>, cx
         app_id: Some(crate::APP_ID.into()),
         window_decorations: if cfg!(target_os = "linux") { Some(WindowDecorations::Client) } else { None },
         titlebar: Some(TitlebarOptions {
-            title: Some("Quiet.md".into()),
+            title: Some("Readus.md".into()),
             appears_transparent: cfg!(any(target_os = "macos", target_os = "windows")),
             traffic_light_position: Some(crate::focus::lights_at()),
         }),

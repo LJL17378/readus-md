@@ -16,6 +16,8 @@ pub struct Anchor {
     pub quote: String,
     pub before: String,
     pub after: String,
+    /// Fraction through the paragraph; independent of font and viewport pixels.
+    pub fraction: f32,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -39,8 +41,9 @@ pub struct Reading {
 
 impl Reading {
     pub fn is_default(&self) -> bool { self == &Self::default() }
-    pub fn visit(&mut self, anchor: Anchor, progress: f32, now: u64) {
+    pub fn visit(&mut self, mut anchor: Anchor, progress: f32, now: u64) {
         if !progress.is_finite() { return }
+        anchor.fraction = if anchor.fraction.is_finite() { anchor.fraction.clamp(0., 1.) } else { 0. };
         self.position = Some(anchor);
         self.progress = progress.clamp(0., 1.);
         self.furthest = self.furthest.max(self.progress).clamp(0., 1.);
@@ -49,7 +52,7 @@ impl Reading {
         if self.status == Status::Later { self.status = Status::Reading; }
     }
     pub fn add_bookmark(&mut self, anchor: Anchor, now: u64) -> bool {
-        if self.bookmarks.iter().any(|b| b.anchor == anchor) { return false }
+        if self.bookmarks.iter().any(|b| b.anchor.quote == anchor.quote && b.anchor.before == anchor.before && b.anchor.after == anchor.after && (!anchor.quote.is_empty() || b.anchor.ordinal == anchor.ordinal)) { return false }
         self.bookmarks.push(Bookmark { id: uuid::Uuid::new_v4().to_string(), anchor, created: now });
         true
     }
@@ -68,7 +71,7 @@ impl Index {
     }
     pub fn anchor(&self, id: BlockId) -> Option<Anchor> {
         let ordinal = self.passages.iter().position(|(b, _)| *b == id)?;
-        Some(Anchor { block: id.0, ordinal, quote: self.passages[ordinal].1.clone(),
+        Some(Anchor { block: id.0, ordinal, fraction: 0., quote: self.passages[ordinal].1.clone(),
             before: ordinal.checked_sub(1).map(|i| self.passages[i].1.clone()).unwrap_or_default(),
             after: self.passages.get(ordinal + 1).map(|(_, q)| q.clone()).unwrap_or_default() })
     }
@@ -96,7 +99,7 @@ mod tests {
     use super::*;
     use crate::model::Block;
 
-    fn document(lines: &[&str]) -> Document { Document { blocks: lines.iter().map(|s| Block::text(*s)).collect(), ..Default::default() } }
+    fn document(lines: &[&str]) -> Document { Document { blocks: lines.iter().map(|s| Block::text(s)).collect(), ..Default::default() } }
 
     #[test]
     fn anchors_survive_reparse_and_insertions_and_reject_deleted_text() {
@@ -138,6 +141,11 @@ mod tests {
         assert!(r.is_default());
         assert!(r.add_bookmark(Anchor::default(), 1));
         assert!(!r.add_bookmark(Anchor::default(), 2));
+        let d = document(&["before", "书签段落", "after"]);
+        let a = Index::new(&d).anchor(d.blocks[1].id).unwrap();
+        assert!(r.add_bookmark(a, 3));
+        let reopened = document(&["before", "书签段落", "after"]);
+        assert!(!r.add_bookmark(Index::new(&reopened).anchor(reopened.blocks[1].id).unwrap(), 4));
         assert_eq!(serde_json::from_str::<Reading>(&serde_json::to_string(&r).unwrap()).unwrap(), r);
     }
 }

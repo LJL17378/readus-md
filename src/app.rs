@@ -24,7 +24,7 @@ const SAVE_DELAY: Duration = Duration::from_millis(500);
 const SAVE_MAX_DELAY: Duration = Duration::from_secs(2);
 
 actions!(workspace, [NewDoc, OpenFile, OpenFolder, ImportDoc, ImportFolder, ImportFromApps, ToggleSidebar, FocusSearch, FindInDoc, ReplaceInDoc, OpenSettings, OpenAbout, CheckForUpdates, CloseWindow, Quit,
-    ReplayOnboarding, HideApp, HideOthers, ShowAll, Minimize, Zoom, ToggleFullScreen, ToggleDarkMode]);
+    ReplayOnboarding, AddReadingBookmark, ShowBookshelf, HideApp, HideOthers, ShowAll, Minimize, Zoom, ToggleFullScreen, ToggleDarkMode]);
 // A confirmation dialog's keys, in its own key context: ↩ is the action button, Esc 取消.
 actions!(confirm, [ConfirmOk, ConfirmCancel]);
 
@@ -47,20 +47,20 @@ fn menu_bar(markdown: bool) -> Vec<Menu> {
     use crate::settings::tr;
     vec![
         Menu {
-            name: "Quiet.md".into(),
+            name: "Readus.md".into(),
             items: vec![
-                MenuItem::action(tr("关于 Quiet.md", "About Quiet.md"), OpenAbout),
+                MenuItem::action(tr("关于 Readus.md", "About Readus.md"), OpenAbout),
                 MenuItem::action(tr("检查更新…", "Check for Updates…"), CheckForUpdates),
                 MenuItem::separator(),
                 MenuItem::action(tr("设置…", "Settings…"), OpenSettings),
                 MenuItem::separator(),
                 MenuItem::os_submenu(tr("服务", "Services"), SystemMenuType::Services),
                 MenuItem::separator(),
-                MenuItem::action(tr("隐藏 Quiet.md", "Hide Quiet.md"), HideApp),
+                MenuItem::action(tr("隐藏 Readus.md", "Hide Readus.md"), HideApp),
                 MenuItem::action(tr("隐藏其他", "Hide Others"), HideOthers),
                 MenuItem::action(tr("全部显示", "Show All"), ShowAll),
                 MenuItem::separator(),
-                MenuItem::action(tr("退出 Quiet.md", "Quit Quiet.md"), Quit),
+                MenuItem::action(tr("退出 Readus.md", "Quit Readus.md"), Quit),
             ],
             disabled: false,
         },
@@ -194,6 +194,8 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("cmd-shift-z", crate::editor::keymap::Redo, Some("Workspace")),
         KeyBinding::new("cmd-y", crate::editor::keymap::Redo, Some("Workspace")),
         KeyBinding::new("cmd-n", NewDoc, None),
+        KeyBinding::new("cmd-d", AddReadingBookmark, Some("Workspace")),
+        KeyBinding::new("cmd-shift-b", ShowBookshelf, Some("Workspace")),
         KeyBinding::new("cmd-shift-n", crate::quick_note::QuickNew, None),
         KeyBinding::new("cmd-,", OpenSettings, None),
         // For trying the first-launch pages; not listed in Settings › Shortcuts.
@@ -2219,6 +2221,8 @@ impl Render for Workspace {
             .on_action(|_: &Minimize, window, _| window.minimize_window())
             .on_action(|_: &Zoom, window, _| window.zoom_window())
             .on_action(|_: &ToggleFullScreen, window, _| window.toggle_fullscreen())
+            .on_action(cx.listener(|w, _: &AddReadingBookmark, _, cx| { if w.view == View::Doc { w.add_bookmark(cx); } }))
+            .on_action(cx.listener(|w, _: &ShowBookshelf, _, cx| w.show_library(crate::reader::Page::Shelf, cx)))
             .on_action(cx.listener(|w, _: &OpenSettings, _, cx| w.show_view(View::Settings, cx)))
             .on_action(cx.listener(|w, _: &ReplayOnboarding, window, cx| w.replay_onboarding(window, cx)))
             .on_action(cx.listener(|w, _: &OpenAbout, _, cx| w.open_settings(crate::settings::Page::About, cx)))
@@ -2250,6 +2254,7 @@ impl Render for Workspace {
             .on_action(cx.listener(|w, _: &crate::typewriter::ToggleParagraphFocus, _, cx| w.set_paragraph_focus(!crate::settings::paragraph_focus(), true, cx)))
             .on_action(cx.listener(|w, _: &crate::modes::ToggleShortcuts, _, cx| {
                 w.shortcuts = !w.shortcuts;
+                if w.shortcuts { w.reader.drawer = false; }
                 cx.notify();
             }))
             .on_key_down(cx.listener(|w, ev: &KeyDownEvent, window, cx| {
@@ -2281,6 +2286,12 @@ impl Render for Workspace {
             // the action on its way down while a menu is open (a switch row keeps the menu open, so
             // Esc is how it goes).
             .capture_action(cx.listener(|w, _: &crate::editor::keymap::Escape, _, cx| {
+                if w.reader.drawer {
+                    w.reader.drawer = false;
+                    cx.stop_propagation();
+                    cx.notify();
+                    return;
+                }
                 if w.doc_menu || w.mode_menu {
                     w.mode_menu = false;
                     w.doc_menu = false;

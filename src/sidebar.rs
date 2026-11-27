@@ -148,7 +148,7 @@ impl Workspace {
             ("nav-bookmarks", "reader-bookmark", crate::settings::tr("书签", "Bookmarks"), crate::reader::Page::Bookmarks),
             ("nav-knowledge", "folder", crate::settings::tr("知识库", "Knowledge library"), crate::reader::Page::Knowledge),
         ] {
-            nav = nav.child(footer_row(id, glyph, label).when(self.view == View::Library && self.reader.page == page, |d| d.bg(Theme::sidebar_selected()))
+            nav = nav.child(footer_row(id, glyph, label).children(crate::devtools::anchor_probe(id)).when(self.view == View::Library && self.reader.page == page, |d| d.bg(Theme::sidebar_selected()))
                 .on_click(cx.listener(move |w, _, _, cx| w.show_library(page, cx))));
         }
 

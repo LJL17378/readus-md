@@ -3995,6 +3995,29 @@ mod tests {
     }
 
     #[test]
+    fn markdown_bookmarks_survive_external_insertions_without_annotating_the_file() {
+        let lib = Lib::new("reader-markdown");
+        let mut s = lib.open();
+        let d = crate::markdown::parse_file("Intro\n\nA passage to remember.\n\nEnd\n", "Article", None);
+        let id = s.create_markdown(&d, "").unwrap();
+        let loaded = s.load(&id).unwrap();
+        let b = loaded.blocks.iter().find(|b| b.text.text == "A passage to remember.").unwrap();
+        let anchor = crate::reading::Index::new(&loaded).anchor(b.id).unwrap();
+        let before = crate::vfs::read_to_string(s.path(&id)).unwrap();
+        s.update_meta(&id, |m| { m.reader.add_bookmark(anchor.clone(), 1); }).unwrap();
+        assert_eq!(crate::vfs::read_to_string(s.path(&id)).unwrap(), before);
+        let after = format!("New paragraph\n\n{before}");
+        crate::vfs::write(s.path(&id), &after).unwrap();
+        drop(s);
+        let mut s = lib.open();
+        let bookmark = s.list().into_iter().find(|e| e.id == id).unwrap().meta.reader.bookmarks.remove(0);
+        let doc = s.load(&id).unwrap();
+        let target = crate::reading::Index::new(&doc).resolve(&bookmark.anchor).unwrap();
+        assert_eq!(doc.blocks.iter().find(|b| b.id == target).unwrap().text.text, "A passage to remember.");
+        assert_eq!(crate::vfs::read_to_string(s.path(&id)).unwrap(), after);
+    }
+
+    #[test]
     fn switching_documents_writes_view_state_later() {
         let lib = Lib::new("view-state");
         let mut s = lib.open();

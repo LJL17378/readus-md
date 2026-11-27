@@ -26,7 +26,7 @@ pub struct Reader {
 
 impl Reader {
     pub fn new(cx: &mut Context<Workspace>) -> Self {
-        let query = cx.new(|cx| TextField::new(tr("搜索标题、正文或书签", "Search titles, text or bookmarks").to_string(), cx));
+        let query = cx.new(|cx| TextField::new("搜索标题、正文或书签".to_string(), cx));
         cx.subscribe(&query, |_, _, ev: &TextFieldEvent, cx| { if matches!(ev, TextFieldEvent::Changed) { cx.notify(); } }).detach();
         Self { page: Page::Shelf, filter: Filter::All, drawer: false, query, pending: HashMap::new(), scroll: ScrollHandle::new() }
     }
@@ -37,12 +37,27 @@ fn status(s: Status) -> &'static str {
 }
 fn percent(n: f32) -> String { format!("{}%", (n.clamp(0., 1.) * 100.).round() as u32) }
 fn eligible(e: &Entry) -> bool { e.meta.folder.is_none() && e.meta.kind.is_doc() && !e.meta.attachment() }
+fn tracked(name: &'static str, control: impl IntoElement) -> Div { div().relative().flex_none().child(control).children(crate::devtools::anchor_probe(name)) }
 fn small(s: impl Into<SharedString>) -> Div { div().text_size(px(crate::design::geo().text_xs)).text_color(color::muted_foreground()).child(s.into()) }
 fn title(s: impl Into<SharedString>) -> Div { div().text_size(px(16.)).line_height(px(24.)).font_weight(FontWeight::SEMIBOLD).text_color(color::foreground()).child(s.into()) }
 fn excerpt(s: &str, n: usize) -> String { s.split_whitespace().collect::<Vec<_>>().join(" ").chars().take(n).collect() }
 fn key(prefix: &str, id: &str) -> SharedString { format!("{prefix}-{id}").into() }
 
 impl Workspace {
+    #[cfg(feature = "devtools")]
+    pub(crate) fn reader_state(&self, cx: &App) -> serde_json::Value {
+        let active = self.entries.iter().find(|e| Some(&e.id) == self.current.as_ref());
+        let r = active.map(|e| e.meta.reader.clone()).unwrap_or_default();
+        serde_json::json!({
+            "commit": option_env!("READUS_COMMIT").unwrap_or("unknown"),
+            "reading": self.reading(), "shelved": r.shelved, "status": r.status,
+            "progress": r.progress, "furthest": r.furthest, "bookmarks": r.bookmarks.len(),
+            "shelf_count": self.entries.iter().filter(|e| eligible(e) && e.meta.reader.shelved).count(),
+            "position": r.position, "drawer": self.reader.drawer,
+            "read_only": self.editor.as_ref().is_some_and(|e| e.read(cx).read_only),
+        })
+    }
+
     pub fn show_library(&mut self, page: Page, cx: &mut Context<Self>) {
         self.reader.page = page;
         self.reader.scroll.set_offset(Point::default());
@@ -95,6 +110,7 @@ impl Workspace {
     pub fn add_bookmark(&mut self, cx: &mut Context<Self>) {
         if self.preview.is_some() { return }
         let (Some(id), Some(ed)) = (self.current.clone(), self.editor.clone()) else { return };
+        if !self.entries.iter().any(|e| e.id == id && eligible(e)) || ed.read(cx).board_open() || ed.read(cx).table_open() { return }
         let Some(anchor) = ed.update(cx, |e, _| e.reading_anchor(true)) else { return };
         self.change_reading(&id, |r| { r.add_bookmark(anchor, crate::time::now()); }, cx);
         self.reader.drawer = true;
@@ -106,6 +122,21 @@ impl Workspace {
         self.change_reading(id, |r| r.bookmarks.retain(|b| b.id != bookmark), cx);
     }
 
+    fn set_reading_status(&mut self, id: &str, to: Status, cx: &mut Context<Self>) {
+        let restart = to == Status::Reading;
+        self.change_reading(id, |r| {
+            r.status = to;
+            if restart { r.position = None; r.progress = 0.; r.furthest = 0.; }
+        }, cx);
+        if restart {
+            self.store.remember_scroll(id, None);
+            self.schedule_view_state(cx);
+            if self.current.as_deref() == Some(id) && let Some(ed) = self.editor.clone() {
+                ed.update(cx, |e, cx| { if let Some(b) = e.core.doc.blocks.first() { e.scroll_to_block(b.id, cx); } });
+            }
+        }
+    }
+
     fn read_from_shelf(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
         if self.try_open(id, window, cx) { self.set_mode(true, window, cx); }
     }
@@ -113,7 +144,7 @@ impl Workspace {
     fn jump_bookmark(&mut self, id: &str, anchor: &Anchor, window: &mut Window, cx: &mut Context<Self>) {
         if !self.try_open(id, window, cx) { return }
         self.set_mode(true, window, cx);
-        let ok = self.editor.clone().is_some_and(|ed| ed.update(cx, |e, cx| e.jump_reading(anchor, cx)));
+        let ok = self.editor.clone().is_some_and(|ed| ed.update(cx, |e, cx| e.jump_reading(anchor, window, cx)));
         if !ok { self.show_toast_kind(ToastKind::Info, tr("原段落已修改或删除，书签仍为你保留", "This passage changed or was removed. Your bookmark is kept."), cx); }
     }
 
@@ -125,19 +156,19 @@ impl Workspace {
         let id = e.id.clone();
         let reading = self.reading();
         Some(div().flex_none().h(px(44.)).px(px(16.)).flex().items_center().gap(px(8.))
-            .child(Button::ghost("reader-mode").sized(ButtonSize::Sm).icon(if reading { "pen-line" } else { "eye-open" })
+            .child(tracked("reader-mode", Button::ghost("reader-mode").sized(ButtonSize::Sm).icon(if reading { "pen-line" } else { "eye-open" })
                 .label(if reading { tr("编辑", "Edit") } else { tr("阅读", "Read") })
-                .on_click(cx.listener(move |w, _, window, cx| w.set_mode(!reading, window, cx))))
+                .on_click(cx.listener(move |w, _, window, cx| w.set_mode(!reading, window, cx)))))
             .child(div().flex_1().min_w(px(24.)).max_w(px(160.)).child(Progress::new(r.progress).h(px(3.))))
             .child(small(percent(r.progress)).w(px(34.)))
             .child(div().flex_1())
-            .child(Button::ghost("reader-bookmark-add").sized(ButtonSize::Sm).icon("reader-bookmark").tip(tr("为选中段落或当前位置添加书签", "Bookmark the selection or current passage"), None)
-                .on_click(cx.listener(|w, _, _, cx| w.add_bookmark(cx))))
-            .child(Button::ghost("reader-bookmarks").sized(ButtonSize::Sm).label(format!("{} {}", tr("书签", "Bookmarks"), r.bookmarks.len())).selected(self.reader.drawer)
-                .on_click(cx.listener(|w, _, _, cx| { w.reader.drawer = !w.reader.drawer; w.shortcuts = false; cx.notify(); })))
-            .child(Button::ghost("reader-shelf").sized(ButtonSize::Sm).icon("reader-book").selected(r.shelved)
+            .child(tracked("reader-bookmark-add", Button::ghost("reader-bookmark-add").sized(ButtonSize::Sm).icon("reader-bookmark").tip(tr("为选中段落或当前位置添加书签", "Bookmark the selection or current passage"), Some(crate::shortcuts::hint("workspace::AddReadingBookmark", "⌘ + D")))
+                .on_click(cx.listener(|w, _, _, cx| w.add_bookmark(cx)))))
+            .child(tracked("reader-bookmarks", Button::ghost("reader-bookmarks").sized(ButtonSize::Sm).label(format!("{} {}", tr("书签", "Bookmarks"), r.bookmarks.len())).selected(self.reader.drawer)
+                .on_click(cx.listener(|w, _, _, cx| { w.reader.drawer = !w.reader.drawer; w.shortcuts = false; cx.notify(); }))))
+            .child(tracked("reader-shelf", Button::ghost("reader-shelf").sized(ButtonSize::Sm).icon("reader-book").selected(r.shelved)
                 .tip(if r.shelved { tr("从书架移除（保留文档与阅读数据）", "Remove from shelf (keep document and reading data)") } else { tr("加入书架", "Add to shelf") }, None)
-                .on_click(cx.listener(move |w, _, _, cx| w.toggle_shelf(&id, cx))))
+                .on_click(cx.listener(move |w, _, _, cx| w.toggle_shelf(&id, cx)))))
             .into_any_element())
     }
 
@@ -148,6 +179,7 @@ impl Workspace {
                 .on_click(cx.listener(move |w, _, window, cx| w.jump_bookmark(&id, &anchor, window, cx))))
             .child(div().id(key("passage", &b.id)).flex_1().min_w_0().cursor_pointer().flex().flex_col().gap(px(4.))
                 .when(document, |d| d.child(small(display_title(&e.title))))
+                .relative().children(crate::devtools::anchor_probe(format!("bookmark:{}", display_title(&e.title))))
                 .child(div().text_size(px(crate::design::geo().text)).line_height(px(22.)).text_color(color::foreground())
                     .child(if b.anchor.quote.is_empty() { tr("段落书签", "Passage bookmark").to_string() } else { b.anchor.quote.clone() }))
                 .on_click({ let (id, a) = (e.id.clone(), b.anchor.clone()); cx.listener(move |w, _, window, cx| w.jump_bookmark(&id, &a, window, cx)) }))
@@ -163,7 +195,7 @@ impl Workspace {
         Some(div().w(px(280.)).flex_none().h_full().border_l_1().border_color(color::border()).flex().flex_col()
             .child(div().h(px(52.)).px(px(16.)).flex_none().flex().items_center().justify_between()
                 .child(title(tr("书签", "Bookmarks")))
-                .child(Button::ghost("reader-drawer-close").sized(ButtonSize::Sm).icon("x").on_click(cx.listener(|w, _, _, cx| { w.reader.drawer = false; cx.notify(); }))))
+                .child(tracked("reader-drawer-close", Button::ghost("reader-drawer-close").sized(ButtonSize::Sm).icon("x").on_click(cx.listener(|w, _, _, cx| { w.reader.drawer = false; cx.notify(); })))))
             .child(div().id("reader-bookmark-list").relative().flex_1().min_h_0().overflow_y_scroll().track_scroll(&scroll).px(px(16.)).pb(px(16.))
                 .when(e.meta.reader.bookmarks.is_empty(), |d| d.child(small(tr("在想回来的段落留下书签。选择文字后，也可以点击下方书签按钮。", "Leave a bookmark where you want to return. You can also select text, then bookmark it.")).py(px(16.))))
                 .children(e.meta.reader.bookmarks.iter().map(|b| self.bookmark_row(e, b, false, cx)))
@@ -182,6 +214,7 @@ impl Workspace {
                     .tip(tr("从书架移除，保留文档", "Remove from shelf, keep document"), None)
                     .on_click(cx.listener(move |w, _, _, cx| w.toggle_shelf(&remove, cx)))))
             .child(div().id(key("shelf-cover", &e.id)).h(px(104.)).overflow_hidden().flex().flex_col().gap(px(8.)).cursor_pointer()
+                .relative().children(crate::devtools::anchor_probe(format!("shelf:{}", display_title(&e.title))))
                 .child(title(display_title(&e.title)))
                 .child(small(excerpt(&e.body, 80)))
                 .on_click({ let id = e.id.clone(); cx.listener(move |w, _, window, cx| w.read_from_shelf(&id, window, cx)) }))
@@ -193,7 +226,7 @@ impl Workspace {
                     .on_click(cx.listener(move |w, _, window, cx| w.read_from_shelf(&id, window, cx))))
                 .child(Button::ghost(key("shelf-finish", &e.id)).sized(ButtonSize::Sm)
                     .label(if next == Status::Finished { tr("标记已读", "Mark finished") } else { tr("重新阅读", "Read again") })
-                    .on_click(cx.listener(move |w, _, _, cx| w.change_reading(&finish, |r| r.status = next, cx)))))
+                    .on_click(cx.listener(move |w, _, _, cx| w.set_reading_status(&finish, next, cx)))))
             .into_any_element()
     }
 
@@ -289,7 +322,7 @@ impl Workspace {
         div().py(px(48.)).flex().flex_col().items_center().gap(px(16.))
             .child(crate::design::icon("reader-book", 32., color::muted_foreground()))
             .child(title(heading)).child(small(description).max_w(px(400.)).text_center())
-            .child(Button::outline("reader-empty-library").label(tr("浏览知识库", "Browse library"))
-                .on_click(cx.listener(|w, _, _, cx| w.show_library(Page::Knowledge, cx))))
+            .child(Button::outline("reader-empty-library").label(if self.reader.page == Page::Knowledge { tr("添加工作目录", "Add working folder") } else { tr("浏览知识库", "Browse library") })
+                .on_click(cx.listener(|w, _, window, cx| if w.reader.page == Page::Knowledge { w.open_folder_dialog(window, cx) } else { w.show_library(Page::Knowledge, cx) })))
     }
 }

@@ -166,6 +166,25 @@ pub fn start(window: &mut Window, cx: &mut App) {
             // middle, looked up in a fresh frame. Not there: stop rather than click into nothing.
             let resolved;
             let (cmd, rest) = match cmd {
+                "reader-state" | "reader-expect" => {
+                    let state = handle.update(cx, |root, _, cx| {
+                        root.downcast::<crate::app::Workspace>().ok().map(|w| w.read(cx).reader_state(cx))
+                    }).ok().flatten().expect("reader command needs a workspace");
+                    if cmd == "reader-state" {
+                        let file = rest.trim();
+                        assert!(!file.is_empty() && !file.contains(['/', '\\']), "state needs a file name");
+                        let dir = std::env::var("FDL_SHOTS").unwrap_or_else(|_| "/tmp".into());
+                        std::fs::write(std::path::Path::new(&dir).join(file), serde_json::to_vec_pretty(&state).unwrap()).unwrap();
+                    } else {
+                        let (pointer, value) = rest.trim().split_once(' ').expect("reader-expect /pointer json");
+                        let want: serde_json::Value = serde_json::from_str(value).expect("expected JSON value");
+                        if state.pointer(pointer) != Some(&want) {
+                            eprintln!("devtools: reader-expect {pointer}: wanted {want}, state: {state}");
+                            std::process::exit(3);
+                        }
+                    }
+                    continue
+                }
                 "row" | "rrow" | "hoverrow" | "anchor" => {
                     let name = rest.trim();
                     let at = handle.update(cx, |root, window, cx| {
