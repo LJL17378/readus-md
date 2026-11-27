@@ -6,7 +6,7 @@ The Mac edits source and runs the app. GitHub Actions compiles and runs Rust tes
 
 After explicit authorization, commit a candidate on a `codex/` branch and push it to the user's fork. `.github/workflows/dev-build.yml` starts automatically. It uses the pinned Rust toolchain, `Cargo.lock`, one macOS architecture, a dependency cache and an isolated test library. It checks download-replacement safety and types/lints before expensive code generation, runs core regressions, builds with `devtools`, packages an ad-hoc signed app, then runs the repository's complete `scripts/check.sh` (tests, bundled-guide round trips and clippy, including devtools). A package is downloadable only after the entire run succeeds.
 
-There is no DMG, notarization or public release in this workflow. `READUS_DEV_BUILD` changes the application identifier and disables upstream automatic updates; telemetry is disabled for devtools and isolated libraries already. The new Readus icon is used by the app bundle.
+The artifact contains an ad-hoc signed app ZIP, a drag-to-install DMG, SHA-256 checksums and source metadata. It is not Apple-notarized. Building does not publish a release; publishing a test prerelease is a separate, explicitly dispatched workflow described below. `READUS_DEV_BUILD` changes the application identifier and disables upstream automatic updates; telemetry is disabled for devtools and isolated libraries already. Double-click launches default to `~/Library/Application Support/Readus.md Test/library`, with a separate sibling `logs` directory; explicit environment paths take precedence. The Readus icon is used by the app bundle.
 
 ```sh
 scripts/dev.sh doctor
@@ -32,3 +32,15 @@ The reader harness clicks the actual mode, shelf, bookmark and navigation contro
 `reader-state <filename.json>` writes a development-only state snapshot into `FDL_SHOTS`; `reader-expect /json/pointer <json-value>` fails the harness on an unexpected state. Neither interface exists in release builds without `devtools`. A restart test must reuse the first run's synthetic library directly; `tools/harness/run.py` deliberately recreates its working copy on every invocation, so two ordinary harness runs do not prove persistence.
 
 Record the commit, Actions run, checks actually passed, local scenarios, screenshots inspected and remaining limitations in the task report. A candidate committed or compiled is not a verified feature.
+
+## Publish a downloadable test package
+
+After the exact development commit passes the full cloud check and local runtime acceptance, fast-forward it into `main`. With authorization to publish a test build, dispatch:
+
+```sh
+gh workflow run publish-test.yml --ref main -f development_run=<successful-run-id>
+```
+
+The workflow uses `tools/dev/publish.py` to require a successful **Readus development** run for the workflow's exact commit. It downloads the `readus-dev` artifact, checks provenance, architecture, both package checksums and the app signature, then creates a **prerelease** tagged `readus-test-<short-commit>`. It never silently replaces an existing release. Assets are the DMG, ZIP, `SHA256SUMS.txt` and `metadata.json`; no Rust compilation happens in this publishing job. The tag identifies a test snapshot of the upstream-base version, not a new stable semantic version.
+
+User downloads belong in [this repository's Releases](https://github.com/LJL17378/readus-md/releases). GitHub's `/releases/latest` excludes prereleases. GitHub Packages is not configured and is not the desktop installer entry. Actions Artifacts expire after seven days; release assets are persistent. Read the installation and signing limits in [the test release notes](../releases/readus-test.md). Do not run upstream CDN publication scripts for Readus.md.

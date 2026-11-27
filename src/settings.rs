@@ -1809,7 +1809,8 @@ impl Workspace {
         div().w_full().flex().flex_col().gap(px(crate::design::geo().section_gap)).child(div().w_full().pt(px(24.)).flex().flex_col().items_center().gap(px(10.))
             .child(img(about_icon()).size(px(88.)))
             .child(div().text_size(px(20.)).line_height(px(26.)).font_weight(FontWeight::SEMIBOLD).child("Readus.md"))
-            .child(div().text_size(px(theme::ui_font())).line_height(px(theme::ui_font() + 5.)).text_color(Theme::text_caption()).child(format!("{} {}", tr("版本", "Version"), env!("CARGO_PKG_VERSION"))))
+            .child(div().text_size(px(theme::ui_font())).line_height(px(theme::ui_font() + 5.)).text_color(Theme::text_caption()).child(format!("{} {} · {} {}", tr("版本", "Version"), env!("CARGO_PKG_VERSION"), tr("测试版", "Test build"), option_env!("READUS_COMMIT").unwrap_or("local").chars().take(7).collect::<String>())))
+            .child(div().text_size(px(theme::ui_font())).text_color(Theme::text_caption()).child(tr("基于 Quiet.md · 书架、书签与知识库", "Based on Quiet.md · bookshelf, bookmarks and knowledge")))
             .child(div().text_size(px(theme::ui_font())).line_height(px(theme::ui_font() + 7.)).text_color(Theme::text_caption()).child(if cfg!(target_os = "macos") { tr("本地优先的笔记应用：无需账号，文档就是你电脑上的文件。", "Local-first notes: no account, your documents are files on your Mac.") }
                 else { tr("本地优先的笔记应用：无需账号，文档就是你电脑上的文件。", "Local-first notes: no account, your documents are files on your computer.") })))
             .child(group("group-update", None, vec![update_row(cx).into_any_element()]))
@@ -1822,7 +1823,7 @@ impl Workspace {
 }
 
 /// 关于 › 项目主页: the source repository, opened in the 打开链接 browser.
-const REPO: &str = "https://github.com/s1dashu/quiet-md";
+const REPO: &str = "https://github.com/LJL17378/readus-md";
 
 /// The sidebar bar's 更新 pill, only while a new version is on offer:
 /// 更新 downloads it (the pill then fills with its progress), 重启更新
@@ -1855,6 +1856,10 @@ pub(crate) fn update_pill(cx: &mut Context<Workspace>) -> Option<AnyElement> {
 
 /// 软件更新: where the updater stands and the one next step.
 fn update_row(cx: &mut Context<Workspace>) -> Div {
+    if option_env!("READUS_DEV_BUILD").is_some() {
+        return row(tr("测试版下载", "Test downloads"), desc(tr("测试版从本项目 Releases 手动下载安装。", "Download test builds manually from this project's Releases.")),
+            button("test-downloads", tr("查看下载", "View downloads")).on_click(|_, _, cx| crate::editor::open_link(cx, "https://github.com/LJL17378/readus-md/releases")));
+    }
     use crate::update::State;
     let state = crate::update::state(cx);
     let (title, detail): (SharedString, Option<SharedString>) = match &state {

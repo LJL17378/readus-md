@@ -1,6 +1,6 @@
 # Architecture
 
-Quiet.md is a single-process GPUI application with roughly 90,000 lines of Rust, including roughly 26,000 for whiteboards. A document is a tree of blocks in memory (`model.rs`) and a DocxXML file on disk (`docxml.rs`). The editor renders the tree as a virtualized list.
+Readus.md is a fork of Quiet.md, a single-process GPUI application with roughly 90,000 lines of Rust, including roughly 26,000 for whiteboards. A document is a tree of blocks in memory (`model.rs`) and a DocxXML file on disk (`docxml.rs`). The editor renders the tree as a virtualized list.
 
 The Cargo workspace contains three crates:
 
@@ -210,3 +210,5 @@ An anchor retains a bounded normalized passage quote, its neighbouring quotes an
 `src/editor/reader.rs` observes the existing virtualized editor after painting and emits deferred progress events only when its viewport changes. The workspace updates its in-memory entries and debounces metadata writes through the view-state task; leaving/saving/quitting flushes pending state. Restoration uses the content anchor and then the measured paragraph fraction, falling back to the existing saved list offset if the content no longer resolves. `src/reader.rs` renders the bookshelf, global bookmarks, document bookmark drawer and knowledge-library view. The latter uses the existing top-level working folders, document mentions and backlinks; it creates no duplicate library.
 
 The knowledge view also resolves cached ordinary file links against all open working folders, joining them to known document paths and deduplicating source/target pairs with @mentions. It uses `Store::reference_paths` from the scan cache without rereading or rewriting bodies. A references view exposes both outgoing and incoming related documents.
+
+Readus development bundles default to an isolated `Readus.md Test` application-data directory before logging or library initialization. Explicit `QUIET_MD_HOME` and `QUIET_MD_LOG_DIR` paths override those defaults. Source and stable upstream builds retain their existing library rules. Test ZIP/DMG packaging and the separate provenance-checked GitHub prerelease workflow are documented in `docs/development/CLOUD_BUILD.md`.

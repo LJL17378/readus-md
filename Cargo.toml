@@ -2,7 +2,8 @@
 name = "quiet_md"
 version = "0.1.14"
 edition = "2024"
-description = "A fast, local-first rich text notes app for macOS and Windows, drawn with GPUI and compatible with Feishu DocxXML"
+description = "Readus.md: a local-first reading and knowledge workspace with bookmarks, reading progress and real working folders"
+repository = "https://github.com/LJL17378/readus-md"
 license = "MIT"
 readme = "README.md"
 authors = ["s1dashu"]

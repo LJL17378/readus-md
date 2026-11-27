@@ -1,4 +1,6 @@
-# Updates and forced updates
+# Upstream update machinery
+
+Readus.md test builds disable upstream automatic updates and use manual downloads from [Readus.md Releases](https://github.com/LJL17378/readus-md/releases). The following describes inherited Quiet.md infrastructure; it is not a Readus.md publishing service. See [the current test delivery workflow](development/CLOUD_BUILD.md).
 
 `src/update.rs` keeps an installed copy current; fonts fetched on demand are in [Downloadable fonts](FONTS.md). Everything it trusts is signed with the release minisign key (`packaging/update-key.pub`; the secret key stays with the maintainer).
 

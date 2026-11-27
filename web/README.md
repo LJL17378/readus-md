@@ -1,5 +1,7 @@
 # Quiet.md for the web
 
+> Inherited Quiet.md infrastructure, retained as source material. This fork has not deployed a Readus.md website, web demo or statistics service. Current Readus.md downloads and status are in the [repository README](../README.md).
+
 The website's [example notebooks](../site/public/notebooks/) run Quiet.md itself, compiled for wasm32. The web and desktop apps share their source. GPUI's single-threaded web backend in `vendor/zed/crates/gpui_web` builds on the stable toolchain.
 
 ## Platform differences

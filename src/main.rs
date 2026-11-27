@@ -240,6 +240,12 @@ fn main() { web::main() }
 
 #[cfg(not(target_family = "wasm"))]
 fn main() {
+    // Set defaults before any threads start; explicit harness/self-test paths win.
+    if option_env!("READUS_DEV_BUILD").is_some() && let Some(base) = dirs::data_local_dir().map(|p| p.join("Readus.md Test")) {
+        for (key, path) in [("QUIET_MD_HOME", base.join("library")), ("QUIET_MD_LOG_DIR", base.join("logs"))] {
+            if std::env::var_os(key).is_none() { unsafe { std::env::set_var(key, path); } }
+        }
+    }
     // `--self-test`: runs the built-in release checks in launches of its own.
     if let Some(code) = selftest::command() { std::process::exit(code) }
     logging::init();

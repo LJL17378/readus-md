@@ -1,5 +1,7 @@
 # quiet-md-stats
 
+> Inherited Quiet.md infrastructure, retained as source material. This fork has not deployed a Readus.md website, web demo or statistics service. Current Readus.md downloads and status are in the [repository README](../../README.md).
+
 A Cloudflare Worker that runs once a day (00:30 UTC) and stores Quiet.md's statistics in the D1 database `quiet-md-stats`. Downloads and update checks never pass through it. Two routes take anonymous daily usage counts: `POST telemetry.quiet.md/v1/cli`, the `quiet` command line tool's (`crates/cli/src/usage.rs`), into `cli_reports`, and `POST telemetry.quiet.md/v1/app`, the app's (`src/usage.rs`), into `app_reports`. Both are switched off in the app's Settings › General › Anonymous usage statistics. It reads what Cloudflare and GitHub already count and keeps daily aggregates, which those services don't keep for long (Cloudflare's per-path analytics: 31 days; GitHub: a running total only). No IP addresses are stored.
 
 ## What it records

@@ -1,8 +1,16 @@
-# Contributing
+# Contributing to Readus.md
 
 Code style and commit conventions are in [AGENTS.md](AGENTS.md) (the same as CLAUDE.md). Read [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) before you start.
 
-## Building from source
+## Recommended: cloud build, local runtime
+
+For this fork, follow [the cloud development workflow](docs/development/CLOUD_BUILD.md). Work on a `codex/` branch, commit and push only with user authorization, wait for the complete development run, then download with `scripts/dev.sh pull` and validate using a synthetic library. Do not install a local Rust/Xcode toolchain on the disk-constrained test Mac.
+
+`tools/dev/package.py` creates the Readus test ZIP and DMG. After cloud and runtime acceptance, the separate `publish-test.yml` workflow can publish those exact artifacts as a GitHub prerelease. This test channel uses ad-hoc signing and makes no Apple notarization claim. Double-click launches use their own Readus.md Test library. See [test release notes](docs/releases/readus-test.md).
+
+The source still contains upstream Quiet.md's build and stable-distribution machinery. The sections below describe those inherited capabilities for contributors with their own toolchain and credentials; they do not mean this fork publishes a signed stable package or owns `download.quiet.md`. Never use upstream deployment endpoints or credentials to publish this fork. Installers for this fork are linked from its README and Releases.
+
+## Optional source build on a separate development machine
 
 macOS needs the Xcode Command Line Tools; Windows needs the Visual Studio 2022 C++ Build Tools and the Windows SDK. The Rust version is pinned in `rust-toolchain.toml`, and rustup picks it up automatically.
 
@@ -34,6 +42,8 @@ To run the checks on every commit: `git config core.hooksPath scripts/hooks`.
 
 | Document | Contents |
 |---|---|
+| [docs/READING.md](docs/READING.md) | Bookshelf, bookmarks, progress and knowledge references |
+| [docs/development/CLOUD_BUILD.md](docs/development/CLOUD_BUILD.md) | Cloud compilation, runtime acceptance and test releases |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Layers, the editing flow, invariants, undo, rendering, the module map |
 | [docs/FORMAT.md](docs/FORMAT.md) | Library layout, index recovery, DocxXML read/write rules and local extensions |
 | [docs/THEMES.md](docs/THEMES.md) | Writing document themes in CSS: selectors, properties, named colors |
@@ -68,7 +78,7 @@ scripts/release.sh
 MACOS_TARGET=x86_64-apple-darwin scripts/release.sh
 ```
 
-Each run keeps its output in a separate `dist-release.*` directory. Intel packages use `macos-x86_64`; Apple Silicon packages keep `macos-arm64`. CI builds both on its existing ARM runner and verifies the binary architectures and signatures. `SIGNING_IDENTITY=-` skips notarization and creates ad-hoc signed `-unsigned.zip` and `-unsigned.dmg` validation packages, which must not be distributed and are rejected by `publish-downloads.sh`.
+Each run keeps its output in a separate `dist-release.*` directory. Intel packages use `macos-x86_64`; Apple Silicon packages keep `macos-arm64`. CI builds both on its existing ARM runner and verifies the binary architectures and signatures. `SIGNING_IDENTITY=-` skips notarization and creates ad-hoc signed `-unsigned.zip` and `-unsigned.dmg` validation packages, which are not stable distribution packages and are rejected by `publish-downloads.sh`. Readus.md uses its separately labelled prerelease test channel for ad-hoc signed test builds.
 
 ### Windows
 

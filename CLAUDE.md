@@ -71,3 +71,9 @@ See tools/harness/README.md for the full rules.
 - Download only a successful run whose commit, repository, architecture and checksum match its metadata. Use an isolated `QUIET_MD_HOME`, replace the current app only after validation, then delete the old app and downloaded archive (the user requests no previous versions), and leave no test processes running.
 
 - Verify reading surfaces in Simplified Chinese as well as English. If Agent functionality is added, ship its provider/base URL/model/API-key settings, connection test and secure local credential management as part of the same feature, never a chat panel without configuration.
+
+## Test package delivery
+
+- Keep all README download entries and repository metadata pointed at `LJL17378/readus-md`; retain explicit upstream credit. Do not present upstream packages or service deployments as Readus.md products.
+- Test installers are GitHub Releases prereleases, not GitHub Packages. After full cloud and local validation, use `publish-test.yml` for the exact validated commit; do not publish a stable release or claim notarization. See `docs/development/CLOUD_BUILD.md`.
+- Readus development bundles opened by double-click default to their own application-data library and logs; explicit harness paths still take precedence.

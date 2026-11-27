@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Package the CI-built executable, without a DMG or local compilation."""
+"""Package the CI-built executable as a test ZIP and drag-to-install DMG."""
 import hashlib
 import json
 import os
@@ -8,6 +8,7 @@ import platform
 import plistlib
 import shutil
 import subprocess
+import tempfile
 
 root = Path(__file__).resolve().parents[2]
 out = root / 'dist-dev'
@@ -38,4 +39,19 @@ meta = dict(commit=os.environ['GITHUB_SHA'], repository=os.environ['GITHUB_REPOS
     run_id=os.environ['GITHUB_RUN_ID'], architecture=platform.machine(), version=version,
     devtools=True, sha256=hashlib.file_digest(archive.open('rb'), 'sha256').hexdigest())
 (out / 'metadata.json').write_text(json.dumps(meta, indent=2) + '\n')
+image = out / 'readus-dev-macos-arm64.dmg'
+with tempfile.TemporaryDirectory(prefix='readus-dmg-') as tmp:
+    stage = Path(tmp)
+    shutil.copytree(app, stage / app.name)
+    (stage / 'Applications').symlink_to('/Applications')
+    (stage / 'READ ME.txt').write_text(
+        'Readus.md Test — macOS 13+, Apple Silicon\n\n'
+        'Drag Readus.md Dev.app to Applications, then launch it there.\n'
+        'This test build is ad-hoc signed, not Apple-notarized. macOS may require approval in Privacy & Security.\n'
+        'Double-click launches use a separate library under ~/Library/Application Support/Readus.md Test.\n'
+        '测试版：拖入 Applications 后启动；默认使用独立文档库，不自动打开 Quiet.md 的文档库。\n')
+    subprocess.run(['hdiutil', 'create', '-volname', 'Readus.md Test', '-srcfolder', str(stage),
+        '-ov', '-format', 'UDZO', str(image)], check=True)
+(out / 'SHA256SUMS.txt').write_text(''.join(
+    f'{hashlib.file_digest(p.open("rb"), "sha256").hexdigest()}  {p.name}\n' for p in (archive, image)))
 shutil.rmtree(app)
