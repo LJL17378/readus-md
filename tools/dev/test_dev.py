@@ -15,7 +15,7 @@ spec.loader.exec_module(dev)
 
 
 class DownloadTests(unittest.TestCase):
-    def exercise(self, invalid=False):
+    def exercise(self, invalid=False, invalid_installer=False):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             current = root / 'current'
@@ -32,6 +32,11 @@ class DownloadTests(unittest.TestCase):
                 meta = dict(commit='abc', repository='owner/fork', run_id='12', architecture=platform.machine(),
                     devtools=True, sha256='wrong' if invalid else digest)
                 (destination / 'metadata.json').write_text(json.dumps(meta))
+                installer = destination / 'readus-dev-macos-arm64.dmg'
+                installer.write_bytes(b'new installer')
+                (destination / 'SHA256SUMS.txt').write_text(f'{hashlib.sha256(installer.read_bytes()).hexdigest()}  {installer.name}\n')
+                if invalid_installer:
+                    installer.write_bytes(b'corrupt')
 
             def run(*args, **kw):
                 if args[0] == 'ditto':
@@ -41,13 +46,14 @@ class DownloadTests(unittest.TestCase):
             with patch.multiple(dev, DEV=root, CURRENT=current), patch.object(dev, 'selected_run', return_value=info), \
                     patch.object(dev, 'sha', return_value='abc'), patch.object(dev, 'repo', return_value='owner/fork'), \
                     patch.object(dev, 'gh', side_effect=gh), patch.object(dev, 'run', side_effect=run), patch.object(dev, 'stop'):
-                if invalid:
+                if invalid or invalid_installer:
                     with self.assertRaisesRegex(ValueError, 'checksum'):
                         dev.pull(12)
                     self.assertEqual((current / 'old-app').read_text(), 'keep until verified')
                 else:
                     dev.pull(12)
                     self.assertTrue((current / 'Readus.md Dev.app/Contents/MacOS/quiet_md').is_file())
+                    self.assertEqual((current / 'readus-dev-macos-arm64.dmg').read_bytes(), b'new installer')
                     self.assertFalse((current / 'old-app').exists())
                     self.assertEqual({p.name for p in root.iterdir()}, {'current'})
 
@@ -56,6 +62,9 @@ class DownloadTests(unittest.TestCase):
 
     def test_success_removes_old_app_and_download(self):
         self.exercise()
+
+    def test_bad_installer_leaves_current_app_untouched(self):
+        self.exercise(invalid_installer=True)
 
 
 if __name__ == '__main__':

@@ -96,6 +96,12 @@ def pull(run_id=None):
         with archive.open('rb') as f:
             if hashlib.file_digest(f, 'sha256').hexdigest() != meta['sha256']:
                 raise ValueError('Artifact checksum mismatch; current app was not changed.')
+        installer = stage / 'readus-dev-macos-arm64.dmg'
+        if installer.exists():
+            sums = dict(line.split('  ', 1)[::-1] for line in (stage / 'SHA256SUMS.txt').read_text().splitlines())
+            with installer.open('rb') as f:
+                if hashlib.file_digest(f, 'sha256').hexdigest() != sums.get(installer.name):
+                    raise ValueError('Installer checksum mismatch; current app was not changed.')
         with zipfile.ZipFile(archive) as z:
             for entry in z.infolist():
                 path = Path(entry.filename)
@@ -108,6 +114,9 @@ def pull(run_id=None):
         if not (app / 'Contents/MacOS/quiet_md').is_file():
             raise ValueError('Development executable is missing.')
         shutil.copy2(stage / 'metadata.json', unpacked / 'metadata.json')
+        if installer.exists():
+            shutil.copy2(installer, unpacked / installer.name)
+            shutil.copy2(stage / 'SHA256SUMS.txt', unpacked / 'SHA256SUMS.txt')
         stop()
         old = DEV / 'replaced'
         if old.exists():
