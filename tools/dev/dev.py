@@ -141,7 +141,7 @@ def launch():
     stop()
     for name in ('library', 'logs'):
         (DEV / name).mkdir(parents=True, exist_ok=True)
-    env = {**os.environ, 'QUIET_MD_HOME': str(DEV / 'library'),
+    env = {**os.environ, 'QUIET_MD_HOME': str(DEV / 'library'), 'QUIET_MD_FOLDERS': str(DEV / 'folders.json'),
         'QUIET_MD_LOG_DIR': str(DEV / 'logs'), 'DO_NOT_TRACK': '1', 'QUIET_NO_TELEMETRY': '1'}
     with (DEV / 'logs/console.log').open('w') as f:
         p = subprocess.Popen([str(BIN)], cwd=ROOT, env=env, stdout=f, stderr=subprocess.STDOUT, start_new_session=True)

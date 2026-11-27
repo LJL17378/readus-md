@@ -1,6 +1,7 @@
-<title>欢迎使用 Quiet.md</title>
-<p>Quiet.md 是一个安静记笔记的地方。不用注册账号，也没有云端空间：每篇文档都是 Mac 上的一个文件。随手记下一个想法也好，用标题、列表、表格、代码和图片梳理一件复杂的事也好，都可以在这里完成。</p>
-<p>这组指南大约十分钟就能带你熟悉 Quiet.md。它们本身就是用 Quiet.md 写的，你看到的每一种排版都可以自己做出来。<b>尽管放心修改。</b>它们是可以动手练习的示例，而不是只读的说明书。</p>
+<title>欢迎使用 Readus.md</title>
+<p>Readus.md 在 Quiet.md 编辑器基础上加入书架、段落书签、阅读进度和知识库。从侧栏进入“书架”“书签”或“知识库”；在文档底部切换阅读、添加书签或加入书架。按 <code>⌘ D</code> 可以为当前位置或选中段落添加书签。</p>
+<p>Readus.md 是一个安静记笔记的地方。不用注册账号，也没有云端空间：每篇文档都是 Mac 上的一个文件。随手记下一个想法也好，用标题、列表、表格、代码和图片梳理一件复杂的事也好，都可以在这里完成。</p>
+<p>这组指南大约十分钟就能带你熟悉 Readus.md。它们本身就是用 Readus.md 写的，你看到的每一种排版都可以自己做出来。<b>尽管放心修改。</b>它们是可以动手练习的示例，而不是只读的说明书。</p>
 <callout emoji="💡" background-color="light-blue" border-color="blue"><p>最好的学习方式是边读边试。想找一块空白的地方随便练习，可以打开 <cite type="doc" href="练习场.xml" file-type="docx">练习场</cite>。</p></callout>
 <h1>认识界面</h1>
 <img src=".assets/guides/home.jpg" caption="文件夹：所有文档一目了然" align="center"/>

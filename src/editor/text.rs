@@ -769,7 +769,7 @@ fn is_quote(ch: char) -> bool {
 
 /// #419: the curly quotes that belong to Chinese text, by byte offset: those
 /// right next to a Han character or Chinese punctuation, and the other one of
-/// their pair (`用“Quiet.md”打开`: both). They take the Chinese face, the rest
+/// their pair (`用“Readus.md”打开`: both). They take the Chinese face, the rest
 /// stay Latin. A quote with no pair (an apostrophe) goes by its own neighbours.
 fn cjk_quotes(text: &str) -> Vec<usize> {
     let chars: Vec<(usize, char)> = text.char_indices().collect();
@@ -1705,7 +1705,7 @@ mod wrap_tests {
     #[test]
     fn hangul_wraps_by_word_and_chinese_by_character() {
         assert_eq!(breaks("한국어 문서를 편집합니다"), [4, 8], "only where a word starts");
-        assert_eq!(breaks("Quiet.md를 써요"), [10], "a particle stays on its word");
+        assert_eq!(breaks("Readus.md를 써요"), [10], "a particle stays on its word");
         assert_eq!(breaks("ㅋㅋㅋ 좋아요"), [4]);
         assert_eq!(breaks("你好世界"), [1, 2, 3]);
         assert_eq!(breaks("中文。한국어"), [1, 3], "Chinese still breaks, but not before closing punctuation");
@@ -1729,7 +1729,7 @@ mod quote_tests {
         // Next to a Han character, on either side, or Chinese punctuation.
         assert_eq!(marks("他说“好”。"), "^^");
         assert_eq!(marks("说：“Hello world”"), "^^", "a pair goes together: the closing one has only Latin around it");
-        assert_eq!(marks("用“Quiet.md”打开"), "^^", "English inside, Chinese outside");
+        assert_eq!(marks("用“Readus.md”打开"), "^^", "English inside, Chinese outside");
         assert_eq!(marks("“好”"), "^^", "the start and end of a paragraph");
         assert_eq!(marks("“Hello”你好"), "^^", "one side is enough");
         // Nested: each pair by its own neighbours.
@@ -1809,7 +1809,7 @@ mod tests {
     #[test]
     fn kept_cjk_fallbacks_shape_like_coretext() {
         use gpui::{FontRun, FontWeight, PlatformTextSystem, px};
-        let text = "他说“好”。用 Quiet.md 打开（文件），再按「保存」：完成！";
+        let text = "他说“好”。用 Readus.md 打开（文件），再按「保存」：完成！";
         let split = text.char_indices().nth(9).unwrap().0;
         let shape = |fonts: &gpui_apple::AppleTextSystem, weight, parts: usize| {
             let id = fonts.font_id(&gpui::Font { weight, ..gpui::font(".SystemUIFont") }).unwrap();

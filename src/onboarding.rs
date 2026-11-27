@@ -1,5 +1,4 @@
-//! 首次启动: a few seconds of dithered film with Quiet glowing in, then a
-//! straight cut to two pages on a drifting gradient —
+//! 首次启动: Readus.md over softly moving flat book spines, followed by two pages —
 //! where the library lives and the quick-note shortcut, then notes to bring
 //! along. ⌘⌥⇧O and Settings › About replay it without touching the library. Nothing is written until 开始使用;
 //! closing the window before that quits without a library.
@@ -26,167 +25,45 @@ pub fn wanted(existed: bool, scripted: bool) -> bool {
     std::env::var_os("QUIET_MD_ONBOARDING").is_some() || (!existed && !scripted)
 }
 
-// ---- the film
+// ---- the reading backdrop
 
-mod film {
-use super::*;
-
-/// Ordered-dither frames, each the XOR of the one before, stacked in one
-/// greyscale PNG (palette index × 17) under a first row holding the palette
-/// as RGB bytes. Made from a generated clip by the intro script.
-const FILM: &str = "onboarding/intro.png";
-const FILM_W: usize = 400;
-const FILM_H: usize = 225;
-pub const FILM_FPS: f32 = 12.;
-
-pub struct Film { pub frames: Vec<Vec<u8>>, pub colors: Vec<Hsla> }
-
-pub fn decode() -> Option<Film> {
-    let img = image::load_from_memory_with_format(crate::assets::get(FILM)?, image::ImageFormat::Png).ok()?.into_luma8();
-    if img.width() as usize != FILM_W { return None }
-    let raw = img.as_raw();
-    let colors = raw[..48].chunks(3).map(|c| Hsla::from(rgb(u32::from_be_bytes([0, c[0], c[1], c[2]])))).collect();
-    let (px, n) = (&raw[FILM_W..], (img.height() as usize - 1) / FILM_H);
-    let mut cur = vec![0u8; FILM_W * FILM_H];
-    let mut frames = Vec::with_capacity(n);
-    for f in 0..n {
-        let delta = &px[f * FILM_W * FILM_H..(f + 1) * FILM_W * FILM_H];
-        for (c, d) in cur.iter_mut().zip(delta) { *c ^= d / 17; }
-        frames.push(cur.clone());
-    }
-    (!frames.is_empty()).then_some(Film { frames, colors })
-}
-
-/// How many texels each dot of the film gets in its texture. The GPU
-/// samples images smoothly; at 4 the blend at a dot's edge is about a device
-/// pixel wide, so the dots stay crisp.
-const UP: usize = 4;
-
-/// One frame as a texture (BGRA), each dot a 4×4 block. Built only when the
-/// film moves on to another frame: drawing it is one image, where a quad per
-/// run of dots came to some 45 000 quads a frame and held the window to 15 fps.
-pub fn texture(frame: &[u8], colors: &[Hsla]) -> std::sync::Arc<RenderImage> {
-    let bgra: Vec<[u8; 4]> = colors.iter().map(|&c| { let c = Rgba::from(c); [(c.b * 255.) as u8, (c.g * 255.) as u8, (c.r * 255.) as u8, 255] }).collect();
-    let (w, h) = (FILM_W * UP, FILM_H * UP);
-    let mut buf = vec![0u8; w * h * 4];
-    for y in 0..FILM_H {
-        let row = &frame[y * FILM_W..(y + 1) * FILM_W];
-        let line = &mut buf[y * UP * w * 4..(y * UP + 1) * w * 4];
-        for (x, &c) in row.iter().enumerate() {
-            let px = bgra[(c as usize).min(bgra.len() - 1)];
-            for k in 0..UP { line[(x * UP + k) * 4..(x * UP + k) * 4 + 4].copy_from_slice(&px); }
-        }
-        for k in 1..UP { buf.copy_within(y * UP * w * 4..(y * UP + 1) * w * 4, (y * UP + k) * w * 4); }
-    }
-    let img = image::RgbaImage::from_raw(w as u32, h as u32, buf).expect("film texture size");
-    std::sync::Arc::new(RenderImage::new(vec![image::Frame::new(img)]))
-}
-
-/// The texture over `b`, scaled to cover it and centred; what spills over is clipped.
-pub fn paint_texture(img: std::sync::Arc<RenderImage>, b: Bounds<Pixels>, window: &mut Window) {
-    let (bw, bh) = (f32::from(b.size.width), f32::from(b.size.height));
-    let s = (bw / FILM_W as f32).max(bh / FILM_H as f32);
-    let (w, h) = (FILM_W as f32 * s, FILM_H as f32 * s);
-    let at = point(b.left() + px((bw - w) / 2.), b.top() + px((bh - h) / 2.));
-    window.with_content_mask(Some(ContentMask { bounds: b }), |window| {
-        let ib = Bounds::new(at, size(px(w), px(h)));
-        let _ = window.paint_image(ib, ib, Corners::default(), img, 0, false);
-    });
-}
-
-/// The wordmark over the film: white Quiet with a glow that follows each
-/// letter. GPUI has no text shadow, so faint copies of the word ring it,
-/// a ring every point out to 18 with copies no more than 2.5 apart, each
-/// ring turned half a step from the last, fading on a bell curve with a
-/// long soft tail: their overlap blurs out from every stroke's edge
-/// without steps you can see. Every copy stays on one line: the box is as
-/// wide as the word, so a copy set off to the right had less room than its
-/// width and wrapped its t onto a second line (#417).
-pub fn wordmark(alpha: f32) -> Div {
-    let word = |a: f32| div().text_size(px(92.)).line_height(px(110.)).font_weight(FontWeight::MEDIUM).whitespace_nowrap().text_color(hsla(0., 0., 1., a)).child("Quiet");
-    let mut halo = div().relative();
-    for ring in 1..=18 {
-        let r = ring as f32;
-        let n = ((std::f32::consts::TAU * r / 2.5).round() as usize).max(10);
-        let a = (0.05 * (-(r / 5.).powi(2)).exp() + 0.02 * (-(r / 13.).powi(2)).exp()) * 16. / n as f32;
-        for i in 0..n {
-            let th = std::f32::consts::TAU * (i as f32 + 0.5 * (ring % 2) as f32) / n as f32;
-            halo = halo.child(word(a * alpha).absolute().left(px(r * th.cos())).top(px(r * th.sin())));
-        }
-    }
-    div().absolute().inset_0().flex().items_center().justify_center().child(halo.child(word(alpha).relative()))
-}
-}
-
-// ---- the backdrop
-
-/// The film alone for a second, Quiet glowing in, then the pages straight
-/// over the film, which keeps playing behind them.
-const HOLD: f32 = 2.9;
-const MARK_IN: (f32, f32) = (1.0, 1.8);
-/// Found folders shown before 再显示.
+const HOLD: f32 = 1.6;
+const MARK_IN: (f32, f32) = (0.1, 0.6);
 const FOUND_SHOWN: usize = 4;
+const FLOW_FPS: f32 = 24.;
 
-/// The backdrop's pace: slow drift, so 30 frames a second is smooth enough.
-const FLOW_FPS: f32 = 30.;
-
-/// Soft light on a near-white page, frosted with grain: sky blue above,
-/// cloud and grass green below, each patch a blurred circle wandering on its
-/// own slow loop. Colours measured from the website's hillside picture
-/// (site/public/bg.png).
+/// Project artwork: flat book spines, with no video textures or perspective.
+/// Blue #2A72D1 is sampled from assets/branding/app-icon.png at (512, 120).
 pub(crate) fn paint_backdrop(b: Bounds<Pixels>, t: f32, window: &mut Window) {
-    use std::f32::consts::TAU;
     let (x, y, w, h) = (f32::from(b.left()), f32::from(b.top()), f32::from(b.size.width), f32::from(b.size.height));
+    let blue = Hsla::from(rgb(0x2a72d1));
     let dark = theme::dark();
-    window.paint_quad(fill(b, if dark { Theme::bg_body() } else { rgb(0xfdfdfd).into() }));
-    // Centre (shares of the window), diameter (share of the width), colour, strength, loop lengths in seconds.
-    // Laid out like the film's hillside, which plays just before: sky over
-    // the top half, a pale cloud at the left of the horizon, grass over the
-    // bottom third. Light washes of those colours, so the page stays bright.
-    const PATCHES: [(f32, f32, f32, u32, f32, f32, f32); 7] = [
-        (0.12, 0.08, 0.48, 0x4f97ea, 0.5, 23., 31.),
-        (0.50, 0.02, 0.46, 0x4793e6, 0.42, 37., 27.),
-        (0.86, 0.10, 0.46, 0x4f97ea, 0.5, 33., 25.),
-        (0.16, 0.60, 0.30, 0xc5dabd, 0.8, 41., 29.),
-        (0.10, 0.98, 0.50, 0xb1c78d, 0.7, 29., 19.),
-        (0.52, 1.04, 0.50, 0xb1c78d, 0.62, 31., 23.),
-        (0.92, 0.96, 0.50, 0x95b676, 0.55, 27., 35.),
-    ];
-    for (i, &(cx, cy, d, color, k, lx, ly)) in PATCHES.iter().enumerate() {
-        let ph = i as f32 * 1.7;
-        let cx = x + w * (cx + 0.08 * (TAU * t / lx + ph).sin());
-        let cy = y + h * (cy + 0.05 * (TAU * t / ly + ph).cos());
-        let d = w * d * (1. + 0.10 * (TAU * t / (lx + ly) + ph).sin());
-        let c = Hsla::from(rgb(color)).opacity(if dark { 0.16 } else { k });
-        window.paint_drop_shadows(Bounds::new(point(px(cx - d / 2.), px(cy - d / 2.)), size(px(d), px(d))), Corners::all(px(d / 2.)),
-            &[BoxShadow { color: c, offset: point(px(0.), px(0.)), blur_radius: px(d * 0.45), spread_radius: px(0.), inset: false }]);
-    }
-    // Grain: one tile of noise repeated, a texel per point.
-    let tile = GRAIN_N as f32;
-    let (mut ty, img) = (y, GRAIN.clone());
-    while ty < y + h {
-        let mut tx = x;
-        while tx < x + w {
-            let ib = Bounds::new(point(px(tx), px(ty)), size(px(tile), px(tile)));
-            let _ = window.paint_image(ib, ib, Corners::default(), img.clone(), 0, false);
-            tx += tile;
+    window.paint_quad(fill(b, crate::design::color::background()));
+    window.paint_quad(fill(b, blue.opacity(if dark { 0.16 } else { 0.07 })));
+    let travel = if crate::settings::motion_high() { 8. } else { 2. };
+    for (side, cy, scale) in [(0., 0.28, 0.9), (1., 0.76, 1.1)] {
+        let width = 176. * scale;
+        let at = if w < 1000. { if side == 0. { -92. } else { w - 60. } } else if side == 0. { w * 0.055 } else { w * 0.945 - width };
+        for i in 0..5 {
+            let phase = t / 5. + i as f32 * 0.7 + side * 2.;
+            let bx = x + at + if i % 2 == 0 { 0. } else { 18. * scale } + phase.sin() * travel;
+            let by = y + h * cy + (i as f32 - 2.) * 35. * scale;
+            let cover = Bounds::new(point(px(bx), px(by)), size(px(width), px(29. * scale)));
+            window.paint_quad(fill(cover, blue.opacity(if dark { 0.22 } else { 0.12 })).corner_radii(px(5. * scale)));
+            let page = Bounds::new(point(px(bx + 8. * scale), px(by + 5. * scale)), size(px(width - 13. * scale), px(19. * scale)));
+            window.paint_quad(fill(page, crate::design::color::background().opacity(if dark { 0.28 } else { 0.72 })).corner_radii(px(2. * scale)));
+            for line in [11., 17.] {
+                window.paint_quad(fill(Bounds::new(point(px(bx + 15. * scale), px(by + line * scale)), size(px(width - 30. * scale), px(scale))), blue.opacity(0.1)));
+            }
         }
-        ty += tile;
     }
 }
 
-const GRAIN_N: u32 = 320;
-/// Specks mostly lighter than what's under them, barely any darker, so the
-/// frost brightens the page instead of greying it (BGRA).
-static GRAIN: std::sync::LazyLock<std::sync::Arc<RenderImage>> = std::sync::LazyLock::new(|| {
-    let mut s: u32 = 0x9e37_79b9;
-    let buf = image::RgbaImage::from_fn(GRAIN_N, GRAIN_N, |_, _| {
-        s ^= s << 13; s ^= s >> 17; s ^= s << 5;
-        let v = (s >> 24) as f32 / 255. * 2. - 1.;
-        if v < 0. { image::Rgba([0, 0, 0, (-v * 9.) as u8]) } else { image::Rgba([255, 255, 255, (v * 70.) as u8]) }
-    });
-    std::sync::Arc::new(RenderImage::new(vec![image::Frame::new(buf)]))
-});
+fn wordmark(alpha: f32) -> Div {
+    div().absolute().inset_0().flex().flex_col().items_center().justify_center().gap(px(20.)).opacity(alpha)
+        .child(img(crate::settings::about_icon()).size(px(88.)))
+        .child(div().text_size(px(64.)).line_height(px(76.)).font_weight(FontWeight::SEMIBOLD).text_color(crate::design::color::foreground()).child("Readus.md"))
+}
 
 // ---- syncing
 
@@ -263,11 +140,8 @@ enum Pick { New, Open, More }
 
 pub struct Onboarding {
     focus: FocusHandle,
-    film: Option<film::Film>,
-    /// The film's current frame as a texture, and which frame it is.
-    film_tex: Option<(usize, std::sync::Arc<RenderImage>)>,
     opened: Instant,
-    /// When the film cuts to the pages (sooner on a key or click).
+    /// When the opening mark gives way to the pages (sooner on a key or click).
     cut_at: Instant,
     /// Over a running app's window (⌘⌥⇧O, Settings): a look only, nothing is written.
     replay: bool,
@@ -337,14 +211,14 @@ impl Onboarding {
         let cut_at = now + Duration::from_secs_f32(HOLD);
         Onboarding {
             focus,
-            film: film::decode(), film_tex: None, opened: now, cut_at, replay, page: Page::Setup, root, open: vec![], copy: false,
+            opened: now, cut_at, replay, page: Page::Setup, root, open: vec![], copy: false,
             lang: crate::settings::prefs().lang(), lang_menu: None, lang_anchor: Default::default(),
             hotkey: crate::shortcuts::global_key(), recording: false, hotkey_error: None,
             picked: vec![], found: None, show_all: false, chosen: vec![], error: None, scripted, incoming: Some(incoming), importing: None, _ticker: ticker,
         }
     }
 
-    /// A key or click while the film plays cuts to the pages now.
+    /// A key or click while the opening mark plays cuts to the pages now.
     fn cut(&mut self, cx: &mut Context<Self>) -> bool {
         let now = Instant::now();
         if now >= self.cut_at { return false }
@@ -468,7 +342,6 @@ impl Onboarding {
         if self.replay {
             if cfg!(target_os = "macos") && self.hotkey != crate::shortcuts::global_key() { let _ = crate::shortcuts::set_global(&self.hotkey, cx); }
             self._ticker = Task::ready(());
-            if let Some((_, t)) = self.film_tex.take() { let _ = window.drop_image(t); }
             return cx.emit(Done);
         }
         // The folders picked open where they are, else a new one (W12).
@@ -519,7 +392,6 @@ impl Onboarding {
     /// The notes take over this same window: no second window, nothing jumps.
     fn hand_over(&mut self, existed: bool, import_error: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
         self._ticker = Task::ready(());
-        if let Some((_, t)) = self.film_tex.take() { let _ = window.drop_image(t); }
         let ws = crate::start(existed, self.scripted, Some(window), self.incoming.take().unwrap_or_default(), cx);
         let hotkey_error = (cfg!(target_os = "macos") && self.hotkey != crate::shortcuts::global_key())
             .then(|| crate::shortcuts::set_global(&self.hotkey, cx).err()).flatten().map(|e| e.to_string());
@@ -574,15 +446,14 @@ impl Onboarding {
                     .on_click(cx.listener(|w, _, window, cx| w.start_recording(window, cx))))
         });
         // Top to bottom: the app's icon, its name, one line, then the settings.
-        let over = self.film.is_some();
         // Centred while it fits (48 above, 88 below: where `pb(40)` alone put it); taller, it starts at the
         // top and scrolls, as the import page does.
         div().id("onb-setup-scroll").size_full().overflow_y_scroll().track_scroll(&crate::design::scroll::handle("onb-setup-scroll")).flex().flex_col().items_center().px(px(48.)).pt(px(48.)).pb(px(88.))
             .child(div().my_auto().flex_none().w_full().flex().flex_col().items_center()
             .child(div().flex().flex_col().items_center().gap(px(12.))
                 .child(div().size(px(64.)).rounded(px(15.)).overflow_hidden().shadow(theme::shadow_card()).child(img(crate::settings::about_icon()).size_full()))
-                .child(lifted(over, 56., 64., true, false, "Quiet.md"))
-                .child(lifted(over, 15., 23., false, true, tr("一个又快又安静的本地笔记应用。", "A fast, quiet, local notes app."))))
+                .child(lifted(56., 64., true, false, "Readus.md"))
+                .child(lifted(15., 23., false, true, tr("安静阅读，随时续读，让文档彼此连接。", "Read quietly. Return easily. Connect your knowledge."))))
             .child(div().w_full().max_w(px(560.)).mt(px(40.)).flex().flex_col().gap(px(12.))
                 .child(lang)
                 .child(open_card)
@@ -631,7 +502,6 @@ impl Onboarding {
         }
         // Folders other apps keep notes in; nothing at all while looking or
         // when there are none. A long list shows its first few until 再显示.
-        let over = self.film.is_some();
         let found = self.found.as_ref().filter(|f| !f.is_empty()).map(|found| {
             let shown = if self.show_all || found.len() <= FOUND_SHOWN + 1 { found.len() } else { FOUND_SHOWN };
             let mut rows: Vec<AnyElement> = found.iter().take(shown).enumerate().map(|(i, f)| {
@@ -651,15 +521,15 @@ impl Onboarding {
             let can: Vec<usize> = (0..found.len()).collect();
             let all = !can.is_empty() && can.iter().all(|&i| self.chosen.get(i).copied().unwrap_or(false));
             let head = div().w_full().px(px(4.)).flex().items_center().justify_between()
-                .child(lifted(over, 12., 16., false, true, crate::localized_format!("在这台电脑上找到 {} 处笔记", "Notes found on this computer ({})", found.len())))
-                .when(can.len() > 1, |d| d.child(lesser(over, false, "onb-all", if all { tr("全不选", "Select none") } else { tr("全选", "Select all") },
+                .child(lifted(12., 16., false, true, crate::localized_format!("在这台电脑上找到 {} 处笔记", "Notes found on this computer ({})", found.len())))
+                .when(can.len() > 1, |d| d.child(lesser(false, "onb-all", if all { tr("全不选", "Select none") } else { tr("全选", "Select all") },
                     cx.listener(move |w, _, _, cx| { for &i in &can { if let Some(c) = w.chosen.get_mut(i) { *c = !all; } } w.sync_copy(); cx.notify(); }))));
             (head, rows)
         });
         // Auto margins centre it while it fits; taller, it starts at the top and scrolls.
         div().id("onb-scroll").size_full().overflow_y_scroll().track_scroll(&crate::design::scroll::handle("onb-scroll")).flex().flex_col().items_center().px(px(48.)).pt(px(56.)).pb(px(88.))
             .child(div().my_auto().flex_none().w_full().max_w(px(560.)).flex().flex_col().gap(px(24.))
-                .child(heading(over, tr("带上已有的笔记", "Bring your notes"), if self.copy { tr("导入的是副本，原来的文件不会被改动。也可以跳过，以后从菜单导入。", "Imports are copies; your files stay as they are. You can skip this and import later.") }
+                .child(heading(tr("带上已有的笔记", "Bring your notes"), if self.copy { tr("导入的是副本，原来的文件不会被改动。也可以跳过，以后从菜单导入。", "Imports are copies; your files stay as they are. You can skip this and import later.") }
                     else { tr("选中的文件夹会直接打开，文件留在原处。也可以跳过，以后从菜单打开。", "The folders you pick open where they are; the files stay put. You can skip this and open them later.") }))
                 .child(sheet("onb-pick-sheet", None, pick_rows))
                 // 导入副本 needs a folder to copy into (the new one) and something to copy: shown once a
@@ -680,17 +550,14 @@ impl Onboarding {
     fn chrome(&self, cx: &mut Context<Self>) -> Div {
         let n = self.imports().len();
         let label = match self.page { Page::Setup => tr("下一步", "Next"), Page::Import if n == 0 => tr("开始使用", "Get started"), Page::Import if self.copy && self.open.is_empty() => tr("导入并开始", "Import and start"), Page::Import => tr("打开并开始", "Open and start") };
-        let over = self.film.is_some();
-        let mark = |on: bool| div().w(px(20.)).h(px(3.)).rounded(px(2.)).bg(match (over, on) {
-            (true, true) => gpui::white(), (true, false) => hsla(0., 0., 1., 0.4), (false, true) => Theme::text(), (false, false) => Theme::fill_hover_strong(),
-        });
+        let mark = |on: bool| div().w(px(20.)).h(px(3.)).rounded(px(2.)).bg(if on { Theme::text() } else { Theme::fill_hover_strong() });
         div().absolute().inset_0()
             .when(self.importing.is_none(), |d| d.child(div().absolute().top(px(10.)).right(px(16.))
-                .child(lesser(over, true, "onb-skip", tr("跳过", "Skip"), cx.listener(|w, _, window, cx| w.skip(window, cx))))))
+                .child(lesser(true, "onb-skip", tr("跳过", "Skip"), cx.listener(|w, _, window, cx| w.skip(window, cx))))))
             .child(div().absolute().left_0().right_0().bottom(px(40.)).flex().justify_center().gap(px(6.))
                 .child(mark(self.page == Page::Setup)).child(mark(self.page == Page::Import)))
             .when(self.page == Page::Import && self.importing.is_none(), |d| d.child(div().absolute().left(px(24.)).bottom(px(30.))
-                .child(lesser(over, true, "onb-back", tr("‹ 上一步", "‹ Back"), cx.listener(|w, _, _, cx| w.go(Page::Setup, cx))))))
+                .child(lesser(true, "onb-back", tr("‹ 上一步", "‹ Back"), cx.listener(|w, _, _, cx| w.go(Page::Setup, cx))))))
             .child(div().absolute().right(px(24.)).bottom(px(28.)).child(match self.importing {
                 // The label stays (transparent) so the button keeps its width.
                 Some(t) => pill("onb-done", label).relative().cursor_default().text_color(transparent_white())
@@ -731,29 +598,16 @@ fn import_all(root: &Path, dirs: &[(PathBuf, Option<String>)]) -> Option<String>
     }
 }
 
-fn heading(over: bool, title: &'static str, sub: &'static str) -> Div {
+fn heading(title: &'static str, sub: &'static str) -> Div {
     div().flex().flex_col().items_center().gap(px(8.))
-        .child(lifted(over, 34., 42., true, false, title))
-        .child(lifted(over, 14., 21., false, true, sub))
+        .child(lifted(34., 42., true, false, title))
+        .child(lifted(14., 21., false, true, sub))
 }
 
-/// Words straight on the page, in the app's own font: dark on the plain
-/// backdrop; white on the film, titles glowing a little like the Quiet
-/// before them, the smallest words on a dark chip so the grass can't swallow them.
-fn lifted(over: bool, size: f32, line: f32, title: bool, soft: bool, text: impl Into<SharedString>) -> Div {
-    let text: SharedString = text.into();
-    let word = |c: Hsla| div().text_size(px(size)).line_height(px(line)).whitespace_nowrap().when(title, |d| d.font_weight(FontWeight::MEDIUM)).text_color(c).child(text.clone());
-    if !over { return word(if soft { Theme::text_caption() } else { Theme::text() }) }
-    if size < 14. { return div().px(px(8.)).py(px(2.)).rounded(px(6.)).bg(hsla(0., 0., 0., 0.28)).child(word(hsla(0., 0., 1., 0.95))) }
-    if !title { return word(hsla(0., 0., 1., if soft { 0.95 } else { 1. })) }
-    let mut d = div().relative();
-    for (r, a) in [(1.2, 0.12), (2.5, 0.05)] {
-        for i in 0..12 {
-            let th = std::f32::consts::TAU * i as f32 / 12.;
-            d = d.child(word(hsla(0., 0., 1., a)).absolute().left(px(r * th.cos())).top(px(r * th.sin())));
-        }
-    }
-    d.child(word(gpui::white()).relative())
+/// Plain text keeps contrast against the pale reading backdrop.
+fn lifted(size: f32, line: f32, title: bool, soft: bool, text: impl Into<SharedString>) -> Div {
+    div().text_size(px(size)).line_height(px(line)).whitespace_nowrap().when(title, |d| d.font_weight(FontWeight::MEDIUM))
+        .text_color(if soft { Theme::text_caption() } else { Theme::text() }).child(text.into())
 }
 
 /// One row of a group: title and description on the left, a control on the right.
@@ -802,16 +656,9 @@ fn soft_button(id: impl Into<ElementId>, label: &'static str) -> Button {
     Button::secondary(id).sized(ButtonSize::Sm).label(crate::settings::label(label))
 }
 
-/// 跳过, 上一步 and 全选, which sit straight on the backdrop (`quiet`: a ghost
-/// button rather than a secondary one). Over the film the design's buttons,
-/// drawn for a flat ground, would vanish into the grass: there they stay a
-/// dark translucent chip in white.
-fn lesser(over: bool, quiet: bool, id: &'static str, label: &'static str, on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static) -> AnyElement {
-    if !over { return if quiet { Button::ghost(id).label(crate::settings::label(label)) } else { soft_button(id, label) }.on_click(on_click).into_any_element() }
-    div().id(id).flex_none().h(px(28.)).px(px(10.)).flex().items_center().rounded(px(8.)).cursor_pointer()
-        .bg(hsla(0., 0., 0., 0.28)).hover(|s| s.bg(hsla(0., 0., 0., 0.4)))
-        .text_size(px(13.)).line_height(px(18.)).text_color(hsla(0., 0., 1., 0.95)).child(crate::settings::label(label))
-        .on_click(on_click).into_any_element()
+/// Lesser actions use the same ghost and secondary buttons as the app.
+fn lesser(quiet: bool, id: &'static str, label: &'static str, on_click: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static) -> AnyElement {
+    if quiet { Button::ghost(id).label(crate::settings::label(label)) } else { soft_button(id, label) }.on_click(on_click).into_any_element()
 }
 
 /// The main button: a primary one with the ↩ that also presses it, after its label.
@@ -829,35 +676,20 @@ impl Render for Onboarding {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let now = Instant::now();
         let t = now.duration_since(self.opened).as_secs_f32();
-        // Before the cut the film is alone; after it, the pages sit on it.
-        let film_up = now < self.cut_at && self.film.is_some();
-        if film_up || self.importing.is_some() { window.request_animation_frame(); }
-        // Without the film (it failed to decode) the pages sit on the drifting gradient.
+        let intro_up = now < self.cut_at;
+        if intro_up || self.importing.is_some() { window.request_animation_frame(); }
         let backdrop = canvas(|b, _, _| b, move |_, b, window, _| paint_backdrop(b, t, window)).absolute().inset_0();
         let page = if self.page == Page::Setup { self.setup_page(cx) } else { self.import_page(cx) };
-        // A new texture only when the film reaches another frame; the old one leaves the GPU.
-        if let Some(f) = &self.film {
-            let n = f.frames.len();
-            let k = (t * film::FILM_FPS) as usize % (2 * n - 2).max(1);
-            let k = if k < n { k } else { 2 * n - 2 - k };
-            if self.film_tex.as_ref().is_none_or(|(i, _)| *i != k) {
-                let tex = film::texture(&f.frames[k], &f.colors);
-                if let Some((_, old)) = self.film_tex.replace((k, tex)) { let _ = window.drop_image(old); }
-            }
-        }
-        let frame = self.film_tex.as_ref().map(|(_, t)| t.clone());
-        // Quiet glows in as the film ends.
-        let mark = if film_up { ((t - MARK_IN.0) / (MARK_IN.1 - MARK_IN.0)).clamp(0., 1.) } else { 0. };
+        let mark = if intro_up { ((t - MARK_IN.0) / (MARK_IN.1 - MARK_IN.0)).clamp(0., 1.) } else { 0. };
         div().id("onboarding").size_full().relative().overflow_hidden()
             .font_family(theme::ui_family()).text_color(Theme::text())
             .track_focus(&self.focus)
             .on_key_down(cx.listener(|w, ev: &KeyDownEvent, window, cx| w.key_down(ev, window, cx)))
-            .when(frame.is_none(), |d| d.child(backdrop))
-            .children(frame.map(|tex| canvas(|b, _, _| b, move |_, b, window, _| film::paint_texture(tex, b, window)).absolute().inset_0()))
-            .when(!film_up, |d| d.child(div().absolute().inset_0().child(page)).child(self.chrome(cx)))
-            // The film alone: a click anywhere brings the pages now.
-            .when(film_up, |d| d.child(div().id("onb-cut").absolute().inset_0().occlude().on_mouse_down(MouseButton::Left, cx.listener(|w, _, _, cx| { w.cut(cx); }))))
-            .when(mark > 0., |d| d.child(film::wordmark(mark)))
+            .child(backdrop)
+            .when(!intro_up, |d| d.child(div().absolute().inset_0().child(page)).child(self.chrome(cx)))
+            // The opening mark: a click anywhere brings the pages now.
+            .when(intro_up, |d| d.child(div().id("onb-cut").absolute().inset_0().occlude().on_mouse_down(MouseButton::Left, cx.listener(|w, _, _, cx| { w.cut(cx); }))))
+            .when(mark > 0., |d| d.child(wordmark(mark)))
     }
 }
 

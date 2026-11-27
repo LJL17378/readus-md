@@ -641,7 +641,7 @@ impl Editor {
         .then_some(h)
     }
 
-    /// 打开: a file Quiet.md edits (`local_files::opens_here`) in a window of
+    /// 打开: a file Readus.md edits (`local_files::opens_here`) in a window of
     /// its own, where it is; any other as `preview_file`.
     pub(super) fn open_file(&mut self, p: Option<&Path>, cx: &mut Context<Self>) {
         match p.filter(|p| p.fs_is_file()) {

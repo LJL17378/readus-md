@@ -14,15 +14,15 @@ use gpui::{prelude::FluentBuilder, *};
 use {crate::design::ButtonSize, std::path::PathBuf};
 
 /// What the agent follows to install the skill and the CLI (`docs/AGENT_INSTALL.md`).
-const GUIDE: &str = "https://github.com/s1dashu/quiet-md/blob/main/docs/AGENT_INSTALL.md";
+const GUIDE: &str = "https://github.com/LJL17378/readus-md/blob/main/docs/AGENT_INSTALL.md";
 
 /// The sentence to paste to the agent.
 fn prompt() -> String {
-    crate::localized_format!("按照 {} 安装 Quiet.md 的 skill 和 CLI。", "Install the Quiet.md skill and CLI by following {}", GUIDE)
+    crate::localized_format!("按照 {} 安装 Readus.md 的 skill 和 CLI。", "Install the Readus.md skill and CLI by following {}", GUIDE)
 }
 
 /// The skill's install line (Vercel's `skills` CLI, the agents' common installer).
-const SKILL_ADD: &str = "npx skills add s1dashu/quiet-md";
+const SKILL_ADD: &str = "npx skills add LJL17378/readus-md";
 
 /// The `quiet` beside the app's own binary (in the .app on macOS, the install
 /// folder on Windows, `bin/` on Linux).
@@ -86,7 +86,7 @@ fn small(s: &'static str) -> Div { div().text_size(px(geo().text_xs)).line_heigh
 
 /// 设置 › 连接 Agent: the skill's install line, a prompt for the agent, the CLI.
 pub(crate) fn page(cx: &mut Context<Workspace>) -> AnyElement {
-    let skill = part(tr("安装 Skill", "Install the skill"), Some(tr("推荐", "Recommended")), tr("把这行粘贴给你的 Agent，它会自己装好，之后就知道怎么用 Quiet.md。", "Paste this line to your agent. It installs itself and learns how to use Quiet.md."), vec![
+    let skill = part(tr("安装 Skill", "Install the skill"), Some(tr("推荐", "Recommended")), tr("把这行粘贴给你的 Agent，它会自己装好，之后就知道怎么用 Readus.md。", "Paste this line to your agent. It installs itself and learns how to use Readus.md."), vec![
         code("copy-skill", SKILL_ADD.into(), cx).into_any_element(),
     ]);
     let ask = part(tr("让 Agent 帮你安装", "Let your agent set it up"), None, tr("或者把这句话发给你的 Agent。", "Or copy this to your agent."), vec![
@@ -108,13 +108,14 @@ pub(crate) fn page(cx: &mut Context<Workspace>) -> AnyElement {
     #[cfg(target_os = "windows")]
     let platform = Some(small(tr("安装程序已把 quiet 加入 PATH，新开的终端里就能用。", "The installer puts quiet on your PATH; open a new terminal to use it.")).into_any_element());
     #[cfg(target_os = "linux")]
-    let platform = Some(small(tr("quiet 在安装包的 bin 文件夹里，和 Quiet.md 放在一起。", "quiet is in the package's bin folder, beside Quiet.md.")).into_any_element());
+    let platform = Some(small(tr("quiet 在安装包的 bin 文件夹里，和 Readus.md 放在一起。", "quiet is in the package's bin folder, beside Readus.md.")).into_any_element());
     #[cfg(not(any(target_os = "macos", target_os = "windows", target_os = "linux")))]
     let platform: Option<AnyElement> = None;
     let cli_body = platform.into_iter().chain([code("copy-cli", tr("quiet ls\nquiet read 文件夹/文档\nquiet help", "quiet ls\nquiet read Folder/Note\nquiet help").into(), cx).into_any_element()]).collect();
     let cli = part("CLI", None, tr("Skill 配套的命令行工具：在终端里用 quiet 命令列出、读写、搜索文档和数据表。", "The command the skill uses: list, read, write and search documents and data tables with quiet."), cli_body);
     let card = |id: &'static str, part: AnyElement| crate::design::Card::new(id).w_full().overflow_hidden().child(part).into_any_element();
     div().w_full().flex().flex_col().gap(px(geo().section_gap))
+        .when(option_env!("READUS_DEV_BUILD").is_some(), |d| d.child(small(tr("当前测试包未附带 quiet CLI；此页说明外部 Agent 连接方式，不是内置聊天。", "This test package does not bundle the quiet CLI. This page describes external agent connections, not built-in chat."))))
         .child(card("agents-skill", skill)).child(card("agents-ask", ask)).child(card("agents-cli", cli))
         .into_any_element()
 }

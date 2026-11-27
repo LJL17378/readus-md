@@ -30,7 +30,7 @@ pub enum EditorEvent {
     /// A 子页面列表 item or an @文档 link was clicked.
     OpenDoc(String),
     OpenRelative(String),
-    /// An attachment Quiet.md edits itself (`local_files::opens_here`): in a window of its own.
+    /// An attachment Readus.md edits itself (`local_files::opens_here`): in a window of its own.
     OpenFile(std::path::PathBuf),
     /// A 反向引用 line: that document, scrolled to its nth block.
     OpenDocAt(String, usize),

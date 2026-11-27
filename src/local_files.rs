@@ -17,7 +17,7 @@ pub fn is_markdown_path(p: &std::path::Path) -> bool {
     p.extension().and_then(|e| e.to_str()).is_some_and(|e| MARKDOWN_EXTS.contains(&e.to_ascii_lowercase().as_str()))
 }
 
-/// A file Quiet.md edits where it is, by the one list of what it opens
+/// A file Readus.md edits where it is, by the one list of what it opens
 /// (`shown::LIBRARY_FILES`): Markdown. `Store::open_local` keeps a 本机文件 as
 /// Markdown only: a DocxXML page's file is named by its title and its links and
 /// pictures are read from the library, a 数据表 is found by its place there, and a
@@ -76,7 +76,7 @@ impl Workspace {
         cx.notify();
     }
 
-    /// An attachment Quiet.md edits (`opens_here`): opened where it is like
+    /// An attachment Readus.md edits (`opens_here`): opened where it is like
     /// 打开文件…, in a window of its own, or the window already showing it.
     pub(crate) fn open_in_own_window(&mut self, path: &std::path::Path, cx: &mut Context<Self>) {
         match self.store.open_local(path) {

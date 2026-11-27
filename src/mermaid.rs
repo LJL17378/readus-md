@@ -482,7 +482,7 @@ mod tests {
         ("er", "erDiagram\n  CUSTOMER ||--o{ ORDER : places\n  CUSTOMER {\n    string name\n  }"),
         ("gantt", "gantt\n  title 计划\n  dateFormat YYYY-MM-DD\n  section 开发\n  解析 :a1, 2026-01-01, 7d\n  布局 :after a1, 10d"),
         ("pie", "pie title 时间\n  \"写作\" : 45\n  \"阅读\" : 30\n  \"整理\" : 25"),
-        ("mindmap", "mindmap\n  root((Quiet.md))\n    编辑\n      块\n    导出\n      PDF"),
+        ("mindmap", "mindmap\n  root((Readus.md))\n    编辑\n      块\n    导出\n      PDF"),
         ("journey", "journey\n  title 写笔记\n  section 开始\n    打开应用: 5: 我\n    输入: 3: 我"),
         ("timeline", "timeline\n  title 历史\n  2024 : 原型\n  2025 : 公测 : 插件"),
         ("gitGraph", "gitGraph\n  commit\n  branch dev\n  commit\n  checkout main\n  merge dev"),

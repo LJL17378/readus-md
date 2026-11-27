@@ -18,8 +18,8 @@ ver=$(sed -n 's/^version = "\(.*\)"$/\1/p' Cargo.toml | head -1)
 prefs() { mkdir -p "$1/.quiet"; printf '{"english":true%s,"seen_version":"%s"}\n' "$2" "$ver" > "$1/.quiet/preferences.json"; printf '{"sidebar_width":240}\n' > "$1/.quiet/settings.json"; }
 python3 shared-mock/guides/build.py "$work/lib" >/dev/null
 prefs "$work/lib" ',"theme":"feishu","feishu":true'
-# The copy is named as a new library's folder is, so the sidebar's heading reads Quiet Notes, not lib.
-FDL_LIB_NAME="Quiet Notes" python3 tools/harness/run.py $here/steps.txt "$work/lib" "$work/run" >/dev/null 2>&1 || true
+# The copy is named as a new library's folder is, so the sidebar's heading reads Readus Test, not lib.
+FDL_LIB_NAME="Readus Test" python3 tools/harness/run.py $here/steps.txt "$work/lib" "$work/run" >/dev/null 2>&1 || true
 for n in toolbar slash; do
   [ -f "$work/run/$n.png" ] || { echo "shots.sh: $n.png missing (see $work/run/log)" >&2; exit 1; }
   # 900×600 with 48pt of meadow around it
@@ -37,7 +37,7 @@ if [ -n "$HM" ]; then
   fh="$work/home"; v="$fh/Documents/Han Meimei"; mkdir -p "$v/.obsidian" "$fh/Library/Application Support/obsidian" "$work/empty"
   cp -R "$vault/." "$v/"; print '{"attachmentFolderPath":".attachments"}' > "$v/.obsidian/app.json"
   print "{\"vaults\":{\"hm\":{\"path\":\"$v\",\"ts\":1}}}" > "$fh/Library/Application Support/obsidian/obsidian.json"
-  HOME="$fh" QUIET_MD_ONBOARDING=1 FDL_LIB_NAME="Quiet Notes" python3 tools/harness/run.py $here/readme-import.txt "$work/empty" "$work/hm-run" >/dev/null 2>&1 || true
+  HOME="$fh" QUIET_MD_ONBOARDING=1 FDL_LIB_NAME="Readus Test" python3 tools/harness/run.py $here/readme-import.txt "$work/empty" "$work/hm-run" >/dev/null 2>&1 || true
   for n in home write board import; do
     [ -f "$work/hm-run/readme-$n.png" ] || { echo "shots.sh: readme-$n.png missing (see $work/hm-run/log)" >&2; exit 1; }
   done

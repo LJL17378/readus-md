@@ -242,6 +242,9 @@ fn main() { web::main() }
 fn main() {
     // Set defaults before any threads start; explicit harness/self-test paths win.
     if option_env!("READUS_DEV_BUILD").is_some() && let Some(base) = dirs::data_local_dir().map(|p| p.join("Readus.md Test")) {
+        if std::env::var_os("QUIET_MD_HOME").is_none() && std::env::var_os("QUIET_MD_FOLDERS").is_none() {
+            unsafe { std::env::set_var("QUIET_MD_FOLDERS", base.join("folders.json")); }
+        }
         for (key, path) in [("QUIET_MD_HOME", base.join("library")), ("QUIET_MD_LOG_DIR", base.join("logs"))] {
             if std::env::var_os(key).is_none() { unsafe { std::env::set_var(key, path); } }
         }

@@ -1,13 +1,5 @@
-# First-launch animation
+# Readus.md first-launch animation
 
-`src/onboarding.rs` plays `intro.png` across the window on first launch.
+The active welcome screen is drawn by `src/onboarding.rs`: a pale blue ground, two flat five-book stacks with a small slow horizontal drift, and a short Readus.md wordmark introduction. It uses native quads, not a video texture, perspective, glow or grain. The blue is sampled from the current app icon. Low motion keeps travel to two points; High uses eight. The existing onboarding controls and order remain.
 
-- The first row holds a 16-color RGB palette. Each subsequent group of 225 rows encodes a 400 × 225 frame. Playback runs at 12 frames per second.
-- Each pixel stores its palette index multiplied by 17 and XORed with the previous frame's value. Static areas take very little space.
-- On each frame change, the app scales the image 4× with nearest-neighbor sampling and sends a single texture to the GPU. The pixels stay crisp as the animation loops forward and backward. After one second, “Quiet” fades in at the center with a glow along its letters. Onboarding then appears over the continuing animation.
-
-The project generated the five-second source video with Seedance 2.5 in LibTV using a starting frame. That frame is the hillside from `site/public/bg.png`, cropped to 16:9 with the dithering removed. Only the branches and grass move gently. The encoder uses ordered dithering with the original website image's 16-color palette to match its pixel art.
-
-```sh
-python3 tools/onboarding/intro.py <video.mp4> assets/onboarding/intro.png --palette site/public/bg.png --fps 12 --w 400 --h 225
-```
+`intro.png` is retained as historical upstream Quiet.md artwork and is no longer loaded by the welcome screen. The original hillside animation was generated with Seedance 2.5 in LibTV, encoded as 400×225, 12fps XOR-delta indexed frames. Its encoder remains at `tools/onboarding/intro.py`; it is not part of the Readus.md welcome flow.
