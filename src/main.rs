@@ -240,6 +240,8 @@ fn main() { web::main() }
 
 #[cfg(not(target_family = "wasm"))]
 fn main() {
+    // `--self-test`: runs the built-in release checks in launches of its own.
+    if let Some(code) = selftest::command() { std::process::exit(code) }
     // Set defaults before any threads start; explicit harness/self-test paths win.
     if option_env!("READUS_DEV_BUILD").is_some() && let Some(base) = dirs::data_local_dir().map(|p| p.join("Readus.md Test")) {
         if std::env::var_os("QUIET_MD_HOME").is_none() && std::env::var_os("QUIET_MD_FOLDERS").is_none() {
@@ -249,8 +251,6 @@ fn main() {
             if std::env::var_os(key).is_none() { unsafe { std::env::set_var(key, path); } }
         }
     }
-    // `--self-test`: runs the built-in release checks in launches of its own.
-    if let Some(code) = selftest::command() { std::process::exit(code) }
     logging::init();
     // the design system's 组件库 panel alone: no library, no main window (src/gallery)
     if gallery::wanted() { return gallery::run(); }
