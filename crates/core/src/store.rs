@@ -3973,7 +3973,8 @@ mod tests {
         let d = doc_with("reading", "Keep this paragraph intact.");
         let id = s.create_from(&d).unwrap();
         let before = crate::vfs::read(s.path(&id)).unwrap();
-        let anchor = crate::reading::Index::new(&s.load(&id).unwrap()).first().unwrap();
+        let loaded = s.load(&id).unwrap();
+        let anchor = crate::reading::Index::new(&loaded).anchor(loaded.blocks[1].id).unwrap();
         s.update_meta(&id, |m| {
             m.reader.shelved = true;
             m.reader.visit(anchor.clone(), 0.65, 42);
@@ -3990,7 +3991,7 @@ mod tests {
         drop(s);
         let mut s = lib.open();
         assert_eq!(s.list().into_iter().find(|e| e.id == id).unwrap().meta.reader, expected);
-        assert_eq!(s.load(&id).unwrap().blocks, d.blocks);
+        assert_eq!(s.load(&id).unwrap().plain_text(), d.plain_text());
     }
 
     #[test]

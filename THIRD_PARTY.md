@@ -885,3 +885,5 @@ The design system in `src/design/` takes its colour, radius and spacing values f
 The project wrote the Getting Started sample documents in `shared-mock/library/` and distributes them under MIT.
 
 | Readus.md reader icons | `assets/icons/reader-book.svg` and `assets/icons/reader-bookmark.svg` are original project artwork (MIT), drawn on the existing 18px outline grid. With these two additions there are 21 project-drawn interface icons; the 82 Nucleo files and 87 distinct licensed Nucleo icons are unchanged. |
+
+The Readus.md blue stacked-book application icon (`assets/branding/app-icon.png`, `app-icon-dev.png` and `app-icon.ico`) is new project branding created with OpenAI image generation on 2026-11-27. It replaces the upstream Quiet.md application icon in these files.

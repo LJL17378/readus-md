@@ -21,7 +21,16 @@ version = next(line.split('"')[1] for line in (root / 'Cargo.toml').read_text().
 with (contents / 'Info.plist').open('wb') as f:
     plistlib.dump(dict(CFBundleName='Readus.md Dev', CFBundleDisplayName='Readus.md Dev',
         CFBundleIdentifier='local.readusmd.dev', CFBundleExecutable='quiet_md', CFBundlePackageType='APPL',
-        CFBundleShortVersionString=version, NSHighResolutionCapable=True, LSMinimumSystemVersion='13.0'), f)
+        CFBundleIconFile="app-icon.icns", CFBundleShortVersionString=version, NSHighResolutionCapable=True, LSMinimumSystemVersion='13.0'), f)
+icons = out / 'app-icon.iconset'
+icons.mkdir(exist_ok=True)
+for size in (16, 32, 128, 256, 512):
+    for scale in (1, 2):
+        suffix = '@2x' if scale == 2 else ''
+        subprocess.run(['sips', '-z', str(size * scale), str(size * scale),
+            str(root / 'assets/branding/app-icon-dev.png'), '--out', str(icons / f'icon_{size}x{size}{suffix}.png')], check=True, stdout=subprocess.DEVNULL)
+subprocess.run(['iconutil', '-c', 'icns', str(icons), '-o', str(contents / 'Resources/app-icon.icns')], check=True)
+shutil.rmtree(icons)
 subprocess.run(['codesign', '--force', '--sign', '-', str(app)], check=True)
 archive = out / 'readus-dev.zip'
 subprocess.run(['ditto', '-c', '-k', '--sequesterRsrc', '--keepParent', str(app), str(archive)], check=True)

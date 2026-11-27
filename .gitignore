@@ -18,3 +18,5 @@
 # Cloud-built development apps and isolated runtime data.
 /.dev/
 /dist-dev/
+
+__pycache__/
