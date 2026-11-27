@@ -33,6 +33,8 @@ The reader harness clicks the actual mode, shelf, bookmark and navigation contro
 
 Record the commit, Actions run, checks actually passed, local scenarios, screenshots inspected and remaining limitations in the task report. A candidate committed or compiled is not a verified feature.
 
+The broader `main` CI also builds the separate `dist` profile and both Mac architectures. Its cold-build limits are 180 minutes on macOS and 90 minutes on Windows; the original 45-minute Windows limit canceled a first build during packaging after its tests and clippy had passed. The single-architecture development workflow remains the faster local-test delivery route. A timeout is not a compiler error, and increasing a limit does not establish that the pending run has passed.
+
 ## Publish a downloadable test package
 
 After the exact development commit passes the full cloud check and local runtime acceptance, fast-forward it into `main`. With authorization to publish a test build, dispatch:

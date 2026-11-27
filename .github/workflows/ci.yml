@@ -25,7 +25,8 @@ jobs:
     name: test + clippy
     # Exercise AppKit and Metal on macOS; Windows checks run separately.
     runs-on: macos-15
-    timeout-minutes: 90
+    # Cold dist-profile builds package ARM and Intel sequentially on this runner.
+    timeout-minutes: 180
     env:
       MACOSX_DEPLOYMENT_TARGET: "13.0"
     steps:
@@ -125,7 +126,8 @@ jobs:
   windows-build:
     name: Windows x64 build
     runs-on: windows-2022
-    timeout-minutes: 45
+    # The first run compiles both release tests and the separate dist profile.
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
