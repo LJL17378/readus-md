@@ -1898,6 +1898,21 @@ impl Store {
         self.index.get(id).filter(|m| m.folder.is_none()).map(|_| self.path(id))
     }
 
+    /// Cached file links as absolute paths, for a knowledge view across working folders.
+    /// A scan already parsed them for move/rename; no document is read or rewritten here.
+    pub fn reference_paths(&self) -> Vec<(String, PathBuf)> {
+        let mut out = vec![];
+        for (id, (_, _, parsed)) in &self.parsed {
+            let Some(path) = self.file_path(id) else { continue };
+            let Some(from) = path.parent() else { continue };
+            for href in &parsed.files {
+                let file = crate::markdown::percent_decode(href.split(['#', '?']).next().unwrap_or(""));
+                out.push((id.clone(), crate::paths::resolve(&file, from)));
+            }
+        }
+        out.sort(); out.dedup(); out
+    }
+
     /// A folder on disk: `None` the library itself. The old flat layout keeps
     /// folders only in its index, so they open as the library.
     pub fn folder_dir(&self, id: Option<&str>) -> Option<PathBuf> {
@@ -4015,6 +4030,20 @@ mod tests {
         let target = crate::reading::Index::new(&doc).resolve(&bookmark.anchor).unwrap();
         assert_eq!(doc.blocks.iter().find(|b| b.id == target).unwrap().text.text, "A passage to remember.");
         assert_eq!(crate::vfs::read_to_string(s.path(&id)).unwrap(), after);
+    }
+
+    #[test]
+    fn knowledge_reference_paths_resolve_encoded_links_from_the_source_folder() {
+        let lib = Lib::new("reader-references");
+        let mut s = lib.open();
+        let target = s.create_markdown(&doc_with("Target notes", "target"), "").unwrap();
+        let folder = s.create_folder("Sources", None).unwrap();
+        let d = crate::markdown::parse_file("[target](../Target%20notes.md#section)\n", "Source", None);
+        let source = s.create_markdown_in(&d, "", Some(&folder)).unwrap();
+        let before = crate::vfs::read(s.path(&source)).unwrap();
+        s.list();
+        assert!(s.reference_paths().contains(&(source.clone(), s.path(&target))));
+        assert_eq!(crate::vfs::read(s.path(&source)).unwrap(), before);
     }
 
     #[test]

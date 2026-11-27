@@ -13,6 +13,7 @@ import sys
 import tempfile
 import time
 import zipfile
+import urllib.request
 
 ROOT = Path(__file__).resolve().parents[2]
 DEV = ROOT / '.dev'
@@ -21,12 +22,18 @@ BIN = CURRENT / 'Readus.md Dev.app/Contents/MacOS/quiet_md'
 
 
 def run(*args, capture=False, **kw):
+    env = dict(kw.pop('env', os.environ))
+    # macOS system proxies are not inherited by Go's HTTP client (gh).
+    for scheme, proxy in urllib.request.getproxies().items():
+        if scheme in ('http', 'https', 'all') and not env.get(scheme.upper() + '_PROXY') and not env.get(scheme + '_proxy'):
+            env[scheme.upper() + '_PROXY'] = proxy
+    kw['env'] = env
     output = kw.pop('stdout', subprocess.PIPE if capture else None)
     return subprocess.run(args, cwd=ROOT, check=True, text=True, stdout=output, **kw).stdout
 
 
 def gh(*args):
-    return run('gh', *map(str, args), capture=True)
+    return run('gh', *map(str, args), capture=True, timeout=180)
 
 
 def repo():
@@ -143,7 +150,8 @@ def test(script):
         (fixture / 'Reading journey.md').write_text('# Reading journey\n\n' + '\n\n'.join(
             f'## Chapter {i}\n\nParagraph {i}. A quiet place to read, bookmark and return. ' + 'Reading stays local. ' * 25 for i in range(1, 31)))
         (fixture / '.quiet').mkdir()
-        (fixture / '.quiet/preferences.json').write_text(json.dumps(dict(language='en', english=True, auto_update=False, usage_stats=False, quick_hotkey=False)))
+        lang = os.environ.get('READUS_TEST_LANG', 'en')
+        (fixture / '.quiet/preferences.json').write_text(json.dumps(dict(language=lang, english=lang != 'zh', appearance='light', seen_version='0.1.14', auto_update=False, usage_stats=False, quick_hotkey=False)))
         (fixture / 'Connected notes.md').write_text('# Connected notes\n\n[Reading journey](Reading%20journey.md)\n')
         work = reports / time.strftime('%Y%m%d-%H%M%S')
         run('python3', 'tools/harness/run.py', str(Path(script).resolve()), str(fixture), str(work),

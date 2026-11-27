@@ -22,7 +22,7 @@ binary = os.environ.get('FDL_BIN') or os.path.join(repo, 'target', 'release', 'q
 if b'devtools: cannot read' not in open(binary, 'rb').read():
     sys.exit(f'{binary} has no script driver: build it with `cargo build --release --features devtools`')
 env = {'HOME': os.path.expanduser('~'), 'QUIET_MD_HOME': lib, 'FDL_SCRIPT': script,
-       'FDL_SHOTS': work, 'PATH': '/opt/homebrew/bin:/usr/bin:/bin'}
+       'FDL_SHOTS': work, 'QUIET_MD_LOG_DIR': os.path.join(work, 'logs'), 'PATH': '/opt/homebrew/bin:/usr/bin:/bin'}
 for k in ('FDL_BOARD_PROF', 'FDL_BOARD_RENDER', 'FDL_TRACE', 'FDL_NOPARK', 'FDL_WINDOW_CAPTURE', 'FDL_NOBLINK', 'FDL_ANIMATE', 'FDL_RECORD_FPS', 'FDL_RECORD_START', 'TMPDIR', 'QUIET_MD_ONBOARDING', 'QUIET_MD_UPDATE_URL', 'QUIET_MD_FONT_URL', 'QUIET_MD_FONT_DIR', 'QUIET_MD_TRIAL_FONTS', 'QUIET_MD_FOLDERS', 'QUIET_MD_COMPONENTS', 'FDL_TREE_WRITE_DELAY'):
     if k in os.environ: env[k] = os.environ[k]
 try:

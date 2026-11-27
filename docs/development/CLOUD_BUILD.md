@@ -4,7 +4,7 @@ The Mac edits source and runs the app. GitHub Actions compiles and runs Rust tes
 
 ## Candidate and checks
 
-After explicit authorization, commit a candidate on a `codex/` branch and push it to the user's fork. `.github/workflows/dev-build.yml` starts automatically. It uses the pinned Rust toolchain, `Cargo.lock`, one macOS architecture, a dependency cache and an isolated test library. It runs core regressions, builds with `devtools`, packages an ad-hoc signed app, then runs the repository's complete `scripts/check.sh` (tests, bundled-guide round trips and clippy, including devtools). A package is downloadable only after the entire run succeeds.
+After explicit authorization, commit a candidate on a `codex/` branch and push it to the user's fork. `.github/workflows/dev-build.yml` starts automatically. It uses the pinned Rust toolchain, `Cargo.lock`, one macOS architecture, a dependency cache and an isolated test library. It checks download-replacement safety and types/lints before expensive code generation, runs core regressions, builds with `devtools`, packages an ad-hoc signed app, then runs the repository's complete `scripts/check.sh` (tests, bundled-guide round trips and clippy, including devtools). A package is downloadable only after the entire run succeeds.
 
 There is no DMG, notarization or public release in this workflow. `READUS_DEV_BUILD` changes the application identifier and disables upstream automatic updates; telemetry is disabled for devtools and isolated libraries already. The new Readus icon is used by the app bundle.
 
@@ -17,7 +17,7 @@ scripts/dev.sh test
 scripts/dev.sh inspect
 ```
 
-`build` and `check` manually dispatch a development run on the current committed `codex/` branch. `sync` dispatches, waits, downloads and launches. These commands require authenticated `gh` and a clean working tree. They do not automatically commit or push. Do not use a last successful build as evidence about uncommitted changes.
+`build` and `check` manually dispatch a development run on the current committed `codex/` branch. `sync` dispatches, waits, downloads and launches. The helper inherits the existing macOS system HTTP proxy for `gh` when no explicit proxy environment is set, without changing system settings. These commands require authenticated `gh` and a clean working tree. They do not automatically commit or push. Do not use a last successful build as evidence about uncommitted changes.
 
 ## Local artifacts and user data
 

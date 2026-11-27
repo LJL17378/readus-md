@@ -472,6 +472,7 @@ impl SharedStore {
         match id { Some(id) => self.on(id, |s| s.folder_dir(Some(id))).flatten(), None => self.active_top().and_then(|k| self.top_path(&k)) }
     }
     pub fn file_path(&self, id: &str) -> Option<PathBuf> { self.on(id, |s| s.file_path(id)).flatten() }
+    pub fn reference_paths(&self) -> Vec<(String, PathBuf)> { let mut out = vec![]; self.each(|s| out.extend(s.reference_paths())); out }
     /// Every open top-level folder by key, for the 2 s look.
     pub fn top_keys_dirs(&self) -> Vec<(String, PathBuf)> { self.0.borrow().ws.folders.iter().filter(|r| r.store.is_some()).map(|r| (r.key.clone(), r.path.clone())).collect() }
     /// Every open top-level folder, for what scans them all (unused images, wiki links).

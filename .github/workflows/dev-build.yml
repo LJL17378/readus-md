@@ -37,6 +37,10 @@ jobs:
         run: |
           rustup component add clippy
           echo "QUIET_MD_HOME=$(mktemp -d)" >> "$GITHUB_ENV"
+      - name: Download replacement safety
+        run: python3 tools/dev/test_dev.py
+      - name: Fast type and lint check
+        run: cargo clippy --release --workspace --locked --all-targets --features devtools -- -D warnings
       - name: Core regressions
         run: cargo test --release --locked -p fdl_core
       - name: Development app

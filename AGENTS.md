@@ -69,3 +69,5 @@ See tools/harness/README.md for the full rules.
 - This Mac is for source editing and runtime testing. Use the `Readus development` GitHub Actions workflow for compilation, tests and clippy; do not install or generate local Rust/Xcode build dependencies.
 - The user may authorize commits/pushes on a `codex/` branch for cloud validation. With that authorization, push the candidate to run `scripts/check.sh` in CI; require its success before merging or calling the work verified. Never infer permission to merge or publish.
 - Download only a successful run whose commit, repository, architecture and checksum match its metadata. Use an isolated `QUIET_MD_HOME`, replace the current app only after validation, then delete the old app and downloaded archive (the user requests no previous versions), and leave no test processes running.
+
+- Verify reading surfaces in Simplified Chinese as well as English. If Agent functionality is added, ship its provider/base URL/model/API-key settings, connection test and secure local credential management as part of the same feature, never a chat panel without configuration.

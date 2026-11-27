@@ -4,8 +4,9 @@ wait 1200
 row Reading journey
 wait 400
 anchor reader-mode
-wait 300
+wait 3000
 reader-expect /read_only true
+reader-expect /backlinks 1
 anchor reader-shelf
 reader-expect /shelved true
 wheel 720 420 900
@@ -32,6 +33,10 @@ reader-expect /bookmarks 1
 anchor nav-knowledge
 wait 300
 shot knowledge-library
+anchor references:Reading journey
+wait 300
+reader-expect /related_count 1
+shot knowledge-references
 anchor nav-bookmarks
 wait 300
 shot all-bookmarks

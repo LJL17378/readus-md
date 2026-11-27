@@ -2286,7 +2286,7 @@ impl Render for Workspace {
             // the action on its way down while a menu is open (a switch row keeps the menu open, so
             // Esc is how it goes).
             .capture_action(cx.listener(|w, _: &crate::editor::keymap::Escape, _, cx| {
-                if w.reader.drawer {
+                if w.reader.drawer && w.history.is_none() && w.doc_info.is_none() && !w.doc_menu && !w.mode_menu {
                     w.reader.drawer = false;
                     cx.stop_propagation();
                     cx.notify();

@@ -8,7 +8,7 @@ use crate::store::Entry;
 use crate::ui::{TipExt, TitleBarExt, ToastKind};
 use fdl_core::reading::{Anchor, Reading, Status};
 use gpui::{prelude::FluentBuilder, *};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
 pub enum Page { #[default] Shelf, Bookmarks, Knowledge }
@@ -19,6 +19,7 @@ pub struct Reader {
     pub page: Page,
     pub filter: Filter,
     pub drawer: bool,
+    pub reference_context: Option<String>,
     pub query: Entity<TextField>,
     pub pending: HashMap<String, (Anchor, f32)>,
     scroll: ScrollHandle,
@@ -28,7 +29,7 @@ impl Reader {
     pub fn new(cx: &mut Context<Workspace>) -> Self {
         let query = cx.new(|cx| TextField::new("搜索标题、正文或书签".to_string(), cx));
         cx.subscribe(&query, |_, _, ev: &TextFieldEvent, cx| { if matches!(ev, TextFieldEvent::Changed) { cx.notify(); } }).detach();
-        Self { page: Page::Shelf, filter: Filter::All, drawer: false, query, pending: HashMap::new(), scroll: ScrollHandle::new() }
+        Self { page: Page::Shelf, filter: Filter::All, drawer: false, reference_context: None, query, pending: HashMap::new(), scroll: ScrollHandle::new() }
     }
 }
 
@@ -37,19 +38,46 @@ fn status(s: Status) -> &'static str {
 }
 fn percent(n: f32) -> String { format!("{}%", (n.clamp(0., 1.) * 100.).round() as u32) }
 fn eligible(e: &Entry) -> bool { e.meta.folder.is_none() && e.meta.kind.is_doc() && !e.meta.attachment() }
-fn tracked(name: &'static str, control: impl IntoElement) -> Div { div().relative().flex_none().child(control).children(crate::devtools::anchor_probe(name)) }
+fn tracked(name: impl Into<SharedString>, control: impl IntoElement) -> Div { div().relative().flex_none().child(control).children(crate::devtools::anchor_probe(name)) }
 fn small(s: impl Into<SharedString>) -> Div { div().text_size(px(crate::design::geo().text_xs)).text_color(color::muted_foreground()).child(s.into()) }
 fn title(s: impl Into<SharedString>) -> Div { div().text_size(px(16.)).line_height(px(24.)).font_weight(FontWeight::SEMIBOLD).text_color(color::foreground()).child(s.into()) }
 fn excerpt(s: &str, n: usize) -> String { s.split_whitespace().collect::<Vec<_>>().join(" ").chars().take(n).collect() }
 fn key(prefix: &str, id: &str) -> SharedString { format!("{prefix}-{id}").into() }
 
 impl Workspace {
+    fn knowledge_links(&self) -> HashMap<String, HashSet<String>> {
+        let docs: Vec<_> = self.entries.iter().filter(|e| eligible(e)).collect();
+        let ids: HashSet<_> = docs.iter().map(|e| e.id.as_str()).collect();
+        let paths: HashMap<_, _> = docs.iter().filter_map(|e| Some((fdl_core::paths::lexical(&self.store.file_path(&e.id)?), e.id.clone()))).collect();
+        let mut links: HashMap<String, HashSet<String>> = HashMap::new();
+        for e in &docs {
+            for l in &e.links { if ids.contains(l.target.as_str()) && e.id != l.target { links.entry(e.id.clone()).or_default().insert(l.target.clone()); } }
+        }
+        for (from, path) in self.store.reference_paths() {
+            if ids.contains(from.as_str()) && let Some(to) = paths.get(&path) && &from != to { links.entry(from).or_default().insert(to.clone()); }
+        }
+        links
+    }
+
+    fn show_references(&mut self, id: &str, cx: &mut Context<Self>) {
+        self.show_library(Page::Knowledge, cx);
+        self.reader.reference_context = Some(id.to_string());
+        self.reader.query.update(cx, |q, cx| q.set_text("", cx));
+        cx.notify();
+    }
+
     #[cfg(feature = "devtools")]
     pub(crate) fn reader_state(&self, cx: &App) -> serde_json::Value {
         let active = self.entries.iter().find(|e| Some(&e.id) == self.current.as_ref());
         let r = active.map(|e| e.meta.reader.clone()).unwrap_or_default();
+        let graph = self.knowledge_links();
+        let id = self.current.as_deref().unwrap_or("");
+        let related = self.reader.reference_context.as_ref().map(|id| self.entries.iter().filter(|e| graph.get(id).is_some_and(|v| v.contains(&e.id)) || graph.get(&e.id).is_some_and(|v| v.contains(id))).count()).unwrap_or(0);
         serde_json::json!({
             "commit": option_env!("READUS_COMMIT").unwrap_or("unknown"),
+            "references": graph.get(id).map_or(0, HashSet::len),
+            "backlinks": graph.values().filter(|v| v.contains(id)).count(),
+            "related_count": related,
             "reading": self.reading(), "shelved": r.shelved, "status": r.status,
             "progress": r.progress, "furthest": r.furthest, "bookmarks": r.bookmarks.len(),
             "shelf_count": self.entries.iter().filter(|e| eligible(e) && e.meta.reader.shelved).count(),
@@ -60,6 +88,7 @@ impl Workspace {
 
     pub fn show_library(&mut self, page: Page, cx: &mut Context<Self>) {
         self.reader.page = page;
+        self.reader.reference_context = None;
         self.reader.scroll.set_offset(Point::default());
         self.show_view(View::Library, cx);
     }
@@ -206,6 +235,7 @@ impl Workspace {
     fn shelf_card(&self, e: &Entry, cx: &mut Context<Self>) -> AnyElement {
         let r = &e.meta.reader;
         let (id, remove, finish) = (e.id.clone(), e.id.clone(), e.id.clone());
+        let completion = if r.status == Status::Finished { 1. } else { r.furthest };
         let next = if r.status == Status::Finished { Status::Reading } else { Status::Finished };
         Card::new(key("shelf-card", &e.id)).w(px(256.)).p(px(20.)).gap(px(16.))
             .child(div().flex().items_center().justify_between()
@@ -218,8 +248,8 @@ impl Workspace {
                 .child(title(display_title(&e.title)))
                 .child(small(excerpt(&e.body, 80)))
                 .on_click({ let id = e.id.clone(); cx.listener(move |w, _, window, cx| w.read_from_shelf(&id, window, cx)) }))
-            .child(div().flex().justify_between().child(small(status(r.status))).child(small(percent(r.furthest))))
-            .child(Progress::new(r.furthest).h(px(3.)))
+            .child(div().flex().justify_between().child(small(status(r.status))).child(small(percent(completion))))
+            .child(Progress::new(completion).h(px(3.)))
             .child(div().flex().items_center().justify_between()
                 .child(Button::secondary(key("shelf-open", &e.id)).sized(ButtonSize::Sm)
                     .label(if r.position.is_some() { tr("继续阅读", "Continue") } else { tr("开始阅读", "Start reading") })
@@ -260,7 +290,12 @@ impl Workspace {
             } else {
                 if filter == Filter::All {
                     let recent: Vec<_> = books.iter().copied().filter(|e| e.meta.reader.status == Status::Reading && e.meta.reader.position.is_some()).take(3).collect();
-                    if !recent.is_empty() { body = body.child(title(tr("继续阅读", "Continue reading"))).child(div().id("shelf-continue").flex().flex_wrap().gap(px(20.)).children(recent.iter().map(|e| self.shelf_card(e, cx)))).child(Separator::new()).child(title(tr("我的书架", "My shelf"))); }
+                    if !recent.is_empty() {
+                        body = body.child(title(tr("继续阅读", "Continue reading"))).child(div().id("shelf-continue").flex().flex_wrap().gap(px(20.)).children(recent.iter().map(|e| self.shelf_card(e, cx))));
+                        let shown: HashSet<_> = recent.iter().map(|e| e.id.clone()).collect();
+                        books.retain(|e| !shown.contains(&e.id));
+                        if !books.is_empty() { body = body.child(Separator::new()).child(title(tr("我的书架", "My shelf"))); }
+                    }
                 }
                 body = body.child(div().id("shelf-all").flex().flex_wrap().gap(px(20.)).children(books.iter().map(|e| self.shelf_card(e, cx))));
             }
@@ -280,20 +315,30 @@ impl Workspace {
                     .child(Button::ghost(key("knowledge-open", &k)).sized(ButtonSize::Sm).label(tr("浏览目录", "Browse folder"))
                         .on_click(cx.listener(move |w, _, window, cx| w.open(&root, window, cx)))));
             }
-            body = body.child(folders).child(title(tr("文档与引用", "Documents & references")));
+            let graph = self.knowledge_links();
+            let context = self.reader.reference_context.as_deref();
+            if let Some(id) = context {
+                let name = self.entries.iter().find(|e| e.id == id).map(|e| display_title(&e.title)).unwrap_or_default();
+                body = body.child(div().flex().items_center().justify_between().gap(px(16.)).child(title(name))
+                    .child(Button::ghost("knowledge-back").sized(ButtonSize::Sm).icon("arrow-left").label(tr("全部文档", "All documents"))
+                        .on_click(cx.listener(|w, _, _, cx| { w.reader.reference_context = None; cx.notify(); }))));
+            } else { body = body.child(folders).child(title(tr("文档与引用", "Documents & references"))); }
             let mut incoming: HashMap<&str, usize> = HashMap::new();
-            for e in self.entries.iter() { for l in &e.links { *incoming.entry(&l.target).or_default() += 1; } }
-            let mut sorted = docs;
+            for targets in graph.values() { for id in targets { *incoming.entry(id).or_default() += 1; } }
+            let mut sorted: Vec<_> = docs.into_iter().filter(|e| context.is_none_or(|id| graph.get(id).is_some_and(|v| v.contains(&e.id)) || graph.get(&e.id).is_some_and(|v| v.contains(id)))).collect();
             sorted.sort_by_key(|e| (std::cmp::Reverse(e.meta.opened), e.title.clone()));
             if sorted.is_empty() { body = body.child(self.reader_empty(tr("从一个工作目录开始", "Start with a working folder"), tr("添加现有文件夹即可浏览文档。用 @ 引用其他文档，反向引用会自动显示在文末。", "Add an existing folder to browse its documents. Mention a document with @; backlinks appear below it."), cx)); }
             for e in sorted {
-                let (id, add) = (e.id.clone(), e.id.clone());
+                let (id, add, refs) = (e.id.clone(), e.id.clone(), e.id.clone());
                 body = body.child(div().flex().items_center().gap(px(16.))
                     .child(div().id(key("knowledge-doc", &e.id)).flex_1().min_w_0().flex().flex_col().gap(px(4.)).cursor_pointer()
                         .child(title(display_title(&e.title)))
-                        .child(small(crate::localized_format!("{} 处引用 · {} 处反向引用", "{} references · {} backlinks", e.links.len(), incoming.get(e.id.as_str()).copied().unwrap_or(0))))
+                        .child(small(crate::localized_format!("引用 {} 篇 · 被引用 {} 次", "{} referenced documents · {} backlinks", graph.get(&e.id).map_or(0, HashSet::len), incoming.get(e.id.as_str()).copied().unwrap_or(0))))
                         .child(small(excerpt(&e.body, 110)))
                         .on_click(cx.listener(move |w, _, window, cx| w.open(&id, window, cx))))
+                    .child(tracked(format!("references:{}", display_title(&e.title)), Button::ghost(key("knowledge-refs", &e.id)).sized(ButtonSize::Sm)
+                        .label(tr("查看引用", "References")).disabled(graph.get(&e.id).is_none_or(HashSet::is_empty) && !incoming.contains_key(e.id.as_str()))
+                        .on_click(cx.listener(move |w, _, _, cx| w.show_references(&refs, cx)))))
                     .child(Button::ghost(key("knowledge-shelve", &e.id)).sized(ButtonSize::Sm).icon("reader-book").selected(e.meta.reader.shelved)
                         .label(if e.meta.reader.shelved { tr("已在书架", "On shelf") } else { tr("加入书架", "Add to shelf") })
                         .on_click(cx.listener(move |w, _, _, cx| w.toggle_shelf(&add, cx)))))
@@ -310,7 +355,7 @@ impl Workspace {
             .child(div().id("reading-library").relative().flex_1().min_h_0().overflow_y_scroll().track_scroll(scroll).px(px(32.)).pb(px(32.))
                 .child(div().w_full().max_w(px(1120.)).mx_auto().flex().flex_col().gap(px(24.))
                     .child(div().pt(px(16.)).flex().flex_col().gap(px(8.))
-                        .child(div().text_size(px(28.)).line_height(px(36.)).font_weight(FontWeight::SEMIBOLD).text_color(color::foreground()).child(name))
+                        .child(div().text_size(px(24.)).line_height(px(32.)).font_weight(FontWeight::SEMIBOLD).text_color(color::foreground()).child(name))
                         .child(small(description)))
                     .child(div().max_w(px(360.)).child(crate::design::Field::new("library-search-field").child(self.reader.query.clone())))
                     .child(body))
